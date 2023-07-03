@@ -1,27 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {BaseSmartAccount, IEntryPoint, UserOperation} from "./BaseSmartAccount.sol";
-import {ModuleManager} from "./base/ModuleManager.sol";
-import {FallbackManager} from "./base/FallbackManager.sol";
-import {LibAddress} from "./libs/LibAddress.sol";
-import {ISignatureValidator} from "./interfaces/ISignatureValidator.sol";
-import {IERC165} from "./interfaces/IERC165.sol";
-import {SmartAccountErrors} from "./common/Errors.sol";
+import {BaseSmartAccount, IEntryPoint, UserOperation} from "../../../BaseSmartAccount.sol";
+import {ModuleManager} from "../../../base/ModuleManager.sol";
+import {FallbackManager} from "../../../base/FallbackManager.sol";
+import {LibAddress} from "../../../libs/LibAddress.sol";
+import {ISignatureValidator} from "../../../interfaces/ISignatureValidator.sol";
+import {IERC165} from "../../../interfaces/IERC165.sol";
+import {SmartAccountErrors} from "../../../common/Errors.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {IAuthorizationModule} from "./interfaces/IAuthorizationModule.sol";
+import {IAuthorizationModule} from "../../../interfaces/IAuthorizationModule.sol";
+import {IHooks} from "./IHooks.sol";
+import {Enum} from "../../../common/Enum.sol";
+
+import "hardhat/console.sol";
 
 /**
  * @title SmartAccount - EIP-4337 compatible smart contract wallet.
  * @dev This contract is the base for the Smart Account functionality.
- *         - It is ownerless by nature. UserOp and txns validation happens in Authorization Modules.
- *         - It provides the functionality to execute AA (EIP-4337) userOps. Gnosis style txns removed to a module.
+ *         - It provides the functionality to execute both gnosis-style txns and AA (EIP-4337) userOps
  *         - It allows to receive and manage assets.
  *         - It is responsible for managing the modules and fallbacks.
  *         - The Smart Account can be extended with modules, such as Social Recovery, Session Key and others.
- * @author Chirag Titiya - <chirag@biconomy.io>, Filipp Makarov - <filipp.makarov@biconomy.io>
+ * @author Chirag Titiya - <chirag@biconomy.io>
  */
-contract SmartAccount is
+contract SmartAccountV3 is
     BaseSmartAccount,
     ModuleManager,
     FallbackManager,
@@ -33,32 +36,44 @@ contract SmartAccount is
     using LibAddress for address;
 
     // Storage Version
-    string public constant VERSION = "2.0.0";
+    string public constant VERSION = "1.0.0";
+
+    // Domain Seperators keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
+    bytes32 internal constant DOMAIN_SEPARATOR_TYPEHASH =
+        0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;
+
+    // keccak256(
+    //     "AccountTx(address to,uint256 value,bytes data,uint8 operation,uint256 targetTxGas,uint256 baseGas,uint256 gasPrice,uint256 tokenGasPriceFactor,address gasToken,address refundReceiver,uint256 nonce)"
+    // );
+    bytes32 internal constant ACCOUNT_TX_TYPEHASH =
+        0xda033865d68bf4a40a5a7cb4159a99e33dba8569e65ea3e38222eb12d9e66eee;
 
     // Owner storage. Deprecated. Left for storage layout compatibility
     address public owner_deprecated;
 
     // changed to 2D nonce below
     // @notice there is no _nonce
-    // Deprecated. Left for storage layout compatibility
-    mapping(uint256 => uint256) public nonces_deprecated;
+    mapping(uint256 => uint256) public nonces;
 
     // AA immutable storage
     IEntryPoint private immutable _entryPoint;
+    uint256 private immutable _chainId;
     address private immutable _self;
 
     // Events
+
     event ImplementationUpdated(
         address indexed oldImplementation,
         address indexed newImplementation
     );
+    event AccountHandlePayment(bytes32 indexed txHash, uint256 indexed payment);
     event SmartAccountReceivedNativeToken(
         address indexed sender,
         uint256 indexed value
     );
 
     /**
-     * @dev Constructor that sets the entry point contract.
+     * @dev Constructor that sets the owner of the contract and the entry point contract.
      *      modules[SENTINEL_MODULES] = SENTINEL_MODULES protects implementation from initialization
      * @param anEntryPoint The address of the entry point contract.
      */
@@ -67,14 +82,14 @@ contract SmartAccount is
         if (address(anEntryPoint) == address(0))
             revert EntryPointCannotBeZero();
         _entryPoint = anEntryPoint;
+        _chainId = block.chainid;
         modules[SENTINEL_MODULES] = SENTINEL_MODULES;
     }
 
     /**
-     * @dev This function allows entry point or SA itself to execute certain actions.
+     * @dev This function allows the owner or entry point to execute certain actions.
      * If the caller is not authorized, the function will revert with an error message.
-     * @notice This function acts as modifier and is marked as internal to be be called
-     * within the contract itself only.
+     * @notice This modifier is marked as internal and can only be called within the contract itself.
      */
     function _requireFromEntryPointOrSelf() internal view {
         if (msg.sender != address(entryPoint()) && msg.sender != address(this))
@@ -82,10 +97,9 @@ contract SmartAccount is
     }
 
     /**
-     * @dev This function allows entry point to execute certain actions.
+     * @dev This function allows the owner or entry point to execute certain actions.
      * If the caller is not authorized, the function will revert with an error message.
-     * @notice This function acts as modifier and is marked as internal to be be called
-     * within the contract itself only.
+     * @notice This modifier is marked as internal and can only be called within the contract itself.
      */
     function _requireFromEntryPoint() internal view {
         if (msg.sender != address(entryPoint()))
@@ -128,6 +142,34 @@ contract SmartAccount is
     }
 
     /**
+     * @dev Returns the domain separator for this contract, as defined in the EIP-712 standard.
+     * @return bytes32 The domain separator hash.
+     */
+    function domainSeparator() public view returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(DOMAIN_SEPARATOR_TYPEHASH, _chainId, address(this))
+            );
+    }
+
+    /**
+     * @notice Returns the ID of the chain the contract is currently deployed on.
+     * @return _chainId The ID of the current chain as a uint256.
+     */
+    function getChainId() public view returns (uint256) {
+        return _chainId;
+    }
+
+    /**
+     * @dev returns a value from the nonces 2d mapping
+     * @param batchId : the key of the user's batch being queried
+     * @return nonce : the number of transactions made within said batch
+     */
+    function getNonce(uint256 batchId) public view virtual returns (uint256) {
+        return nonces[batchId];
+    }
+
+    /**
      * @dev Returns the current entry point used by this account.
      * @return EntryPoint as an `IEntryPoint` interface.
      * @dev This function should be implemented by the subclass to return the current entry point used by this account.
@@ -161,7 +203,7 @@ contract SmartAccount is
     }
 
     /**
-     * @dev Execute a transaction (called by entryPoint)
+     * @dev Execute a transaction (called directly from owner, or by entryPoint)
      * @notice Name is optimized for this method to be cheaper to be called
      * @param dest Address of the contract to call
      * @param value Amount of native tokens to send along with the transaction
@@ -173,7 +215,9 @@ contract SmartAccount is
         bytes calldata func
     ) public {
         _requireFromEntryPoint();
+        //_executePreHooks(dest, value, func);
         _call(dest, value, func);
+        //_executePostHooks(dest, value, func);
     }
 
     /**
@@ -256,6 +300,65 @@ contract SmartAccount is
         }
     }
 
+    function execTransactionFromModule(
+        address to,
+        uint256 value,
+        bytes memory data,
+        Enum.Operation operation
+    ) public virtual override returns (bool success) {
+        _executePreHooks(to, value, data);
+        success = super.execTransactionFromModule(to, value, data, operation);
+        _executePostHooks(to, value, data);
+    }
+
+    function _executePreHooks(
+        address target,
+        uint256 value,
+        bytes memory data
+    ) internal {
+        address module = SENTINEL_MODULES;
+        //console.log("PreHooks:");
+        while (modules[module] != SENTINEL_MODULES) {
+            module = modules[module];
+            //console.log("module: %s", module);
+            //console.log("next module: %s", modules[module]);
+
+            //TODO: How to handle reverts from hooks and at the same time effectively skip modules that do not implement hooks?
+            try
+                IHooks(module).preHook(target, value, data, msg.sender)
+            {} catch Error(string memory reason) {
+                //console.log("Error: %s", reason);
+                revert(reason);
+            } catch {
+                //console.log("Unknown error");
+            }
+        }
+    }
+
+    function _executePostHooks(
+        address target,
+        uint256 value,
+        bytes memory data
+    ) internal {
+        address module = SENTINEL_MODULES;
+        //console.log("PostHooks:");
+        while (modules[module] != SENTINEL_MODULES) {
+            module = modules[module];
+            //console.log("module: %s", module);
+            //console.log("next module: %s", modules[module]);
+
+            //TODO: How to handle reverts from hooks and at the same time effectively skip modules that do not implement hooks?
+            try
+                IHooks(module).postHook(target, value, data, msg.sender)
+            {} catch Error(string memory reason) {
+                //console.log("Error: %s", reason);
+                revert(reason);
+            } catch {
+                //console.log("Unknown error");
+            }
+        }
+    }
+
     function validateUserOp(
         UserOperation calldata userOp,
         bytes32 userOpHash,
@@ -280,7 +383,10 @@ contract SmartAccount is
 
     /**
      * Implementation of ISignatureValidator (see `interfaces/ISignatureValidator.sol`)
-     * @dev Forwards the validation to the module specified in the signature
+     * @dev If owner is a smart-contract (other smart contract wallet or module, that controls
+     *      signature verifications - like multisig), forward isValidSignature request to it.
+     *      In case of multisig, _signature can be several concatenated signatures
+     *      If owner is EOA, perform a regular ecrecover.
      * @param dataHash 32 bytes hash of the data signed on the behalf of address(msg.sender)
      * @param signature Signature byte array associated with dataHash
      * @return bytes4 value.
@@ -369,7 +475,7 @@ contract SmartAccount is
 
     /**
      * @dev Sets the fallback handler.
-     * @notice This can only be done via a UserOp sent by EntryPoint.
+     * @notice This can only be done via a UserOp sent by EntryPoint or selfcall by SA.
      * @param handler Handler to be set.
      */
     function setFallbackHandler(address handler) external virtual override {
