@@ -32,6 +32,10 @@ interface ISAFactory {
     ) external view returns (address _account);
 }
 
+interface IECDSARegistryModule{
+    function getOwner(address smartAccount) external view returns (address);
+}
+
 contract TestERC20Transfer is Test {
 
     using ECDSA for bytes32;
@@ -84,6 +88,12 @@ contract TestERC20Transfer is Test {
         smartAccountFactory = new SmartAccountFactory(address(smartAccountImplementation));
         scwOwnershipRegistryModule = new SmartContractOwnershipRegistryModule();
         ecdsaOwnershipRegistryModule = new EcdsaOwnershipRegistryModule();
+
+        // Fund all contracts
+        vm.deal(entryPointAdr,5 ether);
+        vm.deal(ecdsaOwnershipModuleAddress,5 ether);
+        vm.deal(smartAccountFactoryAddress,5 ether);
+        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
         
         // Set Addresses
         ecdsaOwnershipModuleAddress = address(ecdsaOwnershipRegistryModule);
@@ -95,43 +105,20 @@ contract TestERC20Transfer is Test {
         alice = makeAddr("alice");
         bob = makeAddr("bob");
         proxima424 = makeAddr("proxima424");
-
     }
 
-
-    // Tests Deployment of Smart Account with ECDSA Auth Module
+    // Deployment of Smart Account with ECDSA Auth Module
     function testSmartAccountDeployment() public {
-        // Deploy SA(ECDSA Module) and set smartAccountOwner as owner
-        uint256 prevGas = gasleft();
         bytes memory txnData = abi.encodeWithSignature("initForSmartAccount(address)", smartAccountOwner);
+        uint256 prevGas = gasleft();
         ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData, smartAccountDeploymentIndex
         );
         console.logUint(prevGas-gasleft());
+        console.log("Gas required to deploy Smart Contract Wallet with ECDSA Auth Module is mentioned above: ");
     }
 
-    // Tests ERC20 DAI Transfer on Mainnet
-    // function testERC20Transfer() public {          
-    //     // Construct UserOp
-    //     bytes memory txnData1 = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountToSend);
-    //     bytes memory txnData2 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData1 );
-    //     UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData2);
-    //     bytes32 hashed = hash(userOp);
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed.toEthSignedMessageHash());
-    //     userOp.signature = abi.encodePacked(r, s, v);
-
-    //     // Send the userOp to EntryPoint   
-    //     uint256 prevGas = gasleft();
-    //     UserOperation[] memory ops = new UserOperation[](1);
-    //     ops[0] = userOp;
-    //     IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-    //     console.logUint(prevGas-gasleft());
-        
-    //     // assertEq(IERC20(dai).balanceOf(expectedSmartAccountAddress),2500);
-    //     // assertEq(IERC20(dai).balanceOf(proxima424),7500);
-    // }
-
-    function testEverything() public {
+    function testERC20Transfer() public {
         vm.selectFork(forkNumber);
 
         // Get address of Smart Account in order to fund it with DAI before hand
@@ -145,42 +132,51 @@ contract TestERC20Transfer is Test {
         address userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData1, smartAccountDeploymentIndex
         ); 
-        console.log(userSA);
-        console.log(expectedSmartAccountAddress);
+        
+        // INVARIANT ==> SmartAccountOwner is set as owner of userSA
+        assertEq(smartAccountOwner,IECDSARegistryModule(ecdsaOwnershipModuleAddress).getOwner(userSA));
+
 
         // Fund userSA and proxima424 with DAI
-        // Fund expectedSmartAccountAddress and proxima424 with DAI token
         vm.startPrank(richDAI);
         IERC20(dai).transfer(userSA, 5000);
         IERC20(dai).transfer(proxima424, 5000);
         vm.stopPrank();
 
-        // Fund userSA with 5 ether
+        // INVARIANT ==> proxima424, userSA are funded with 5000 DAI each
+        assertEq(IERC20(dai).balanceOf(proxima424),5000);
+        assertEq(IERC20(dai).balanceOf(userSA),5000);
+
+        // Fund userSA, entryPoint contract with 5 ether
         vm.deal(userSA,5 ether);
         vm.deal(entryPointAdr,5 ether);
 
-        console.log(entryPointAdr.balance);
-
-        // Construct userOp
-        uint256 amountToSend = 2500;
-        bytes memory txnData2 = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountToSend);      
+        // Construct userOp to send 2500 DAI from userSA to proxima424
+        uint256 amountOfDAIToSend = 2500;
+        bytes memory txnData2 = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountOfDAIToSend);      
         bytes memory txnData3 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData2 );
         UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData3);
 
-        bytes32 hashed = hash(userOp);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed.toEthSignedMessageHash());
+        bytes32 hashed1 = hash(userOp);
+        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
         userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
         
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
-        IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
 
+        // Send the userOp to EntryPoint
+        uint256 prevGas = gasleft();
+        IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
+        console.log(prevGas-gasleft());
+        console.log("Gas consumed in DAI transfer is mentioned above");
+        assertEq(IERC20(dai).balanceOf(proxima424),7500);
     }
 
-
-
-    // HELPER FUNCTIONS FOR CONSTRUCTING AND SIGNING USER-OP
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*  HELPER FUNCTIONS FOR CONSTRUCTING AND SIGNING USER-OP      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function fillUserOp(EntryPoint _entryPoint, address _sender, bytes memory _data)
         internal
@@ -227,6 +223,4 @@ contract TestERC20Transfer is Test {
     function hash(UserOperation memory userOp) internal pure returns (bytes32) {
         return keccak256(pack(userOp));
     }
-
-
 }
