@@ -37,7 +37,6 @@ interface IECDSARegistryModule{
 }
 
 contract TestERC20Transfer is Test {
-
     using ECDSA for bytes32;
     uint256 public forkNumber;
 
@@ -62,20 +61,6 @@ contract TestERC20Transfer is Test {
     SmartAccountFactory public smartAccountFactory;
     SmartContractOwnershipRegistryModule public scwOwnershipRegistryModule;
     EcdsaOwnershipRegistryModule public ecdsaOwnershipRegistryModule;
-
-    // struct UserOperation {
-    //     address sender;
-    //     uint256 nonce;
-    //     bytes initCode;
-    //     bytes callData;
-    //     uint256 callGasLimit;
-    //     uint256 verificationGasLimit;
-    //     uint256 preVerificationGas;
-    //     uint256 maxFeePerGas;
-    //     uint256 maxPriorityFeePerGas;
-    //     bytes paymasterAndData;
-    //     bytes signature;
-    // }
 
     // This function is called before every test case
     function setUp() public {
