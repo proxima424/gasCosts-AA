@@ -1,0 +1,11 @@
+All Transaction types tests should have the following variation :::::: </br>
+- Different Auth Modules : ECDSA Auth Module, SmartAccountOwnership Module
+- Different chains : Mainnet, Optimism, Polygon, Arbitrum
+
+ERC20 Test :::::: </br>
+- Cold Transfer : Send to address with zero balance
+- Warm Transfer : Send to address with >0 balance
+- Approve : Approve a cold address
+- Approve : Approve a warm address
+- Mint : Mint a cold address some ERC20s
+- Mint : Mint a warm address some ERC20s
