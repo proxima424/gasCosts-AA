@@ -5,8 +5,8 @@ Test Cases to Cover by forking ETH-Mainnet : </br>
 - [X] DAI Transfer
 - [ ] Native ETH Transfer
 - [ ] Wallet Deployment
-- [ ] NFT Transfer
-- [ ] NFT Mint
+- [X] NFT Transfer
+- [X] NFT Mint
 - [ ] Uniswap Swap
 - [ ] AAVE deposit Collateral
 - [ ] Uniswap V3 Mint Position
