@@ -121,11 +121,11 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in NFT transfer (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in NFT transfer (cold access) is mentioned above");
         // INVARIANT := NFT tokenId 0 transferred from userSA to proxima424
         assertEq(mockERC721.ownerOf(0),proxima424);
     }
@@ -149,11 +149,11 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in NFT transfer (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in NFT transfer (warm access) is mentioned above");
+        console.log(prevGas-gasleft());    
         // NFT with tokenId 0 is transferred from userSA to proxima424 ( holds another NFT already)
         assertEq(mockERC721.ownerOf(0),proxima424);
     }
@@ -173,11 +173,11 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in minting NFT (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in minting NFT (cold access) is mentioned above");
         // NFT with tokenId 0 is minted to userSA
         assertEq(mockERC721.ownerOf(0),userSA);
     }
@@ -200,11 +200,11 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in minting NFT (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in minting NFT (warm access) is mentioned above");
         // NFT with tokenId 0 is minted to userSA
         assertEq(mockERC721.ownerOf(1),userSA);
     }
@@ -232,11 +232,11 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in approving NFT (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in approving NFT (warm access) is mentioned above");
         // NFT with tokenId 0 is minted to userSA
         assertEq(mockERC721.getApproved(0), alice);
     }
@@ -259,11 +259,11 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in approving NFT (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in approving NFT (cold access) is mentioned above");
         // NFT with tokenId 0 is minted to userSA
         assertEq(mockERC721.getApproved(0), proxima424);
     }

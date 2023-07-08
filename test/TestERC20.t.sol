@@ -108,12 +108,12 @@ contract TestERC20 is Test {
     // Deployment of Smart Account with ECDSA Auth Module
     function testSADeploymentWithECDSAAuth() public {
         bytes memory txnData = abi.encodeWithSignature("initForSmartAccount(address)", alice);
+        console.log("ECDSA Module :: Gas required in deploying Smart-Account-Wallet with ECDSA Auth Module is : ");
         uint256 prevGas = gasleft();
         address newUserSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData, smartAccountDeploymentIndex
         );
         console.logUint(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas required in deploying Smart-Account-Wallet with ECDSA Auth Module is mentioned above: ");
 
         // INVARIANT ==> SmartAccountOwner is set as owner of userSA
         assertEq(alice,IECDSARegistryModule(ecdsaOwnershipModuleAddress).getOwner(newUserSA));
@@ -140,11 +140,12 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in DAI transfer (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in DAI transfer (cold access) is mentioned above");
+        console.log("ECDSA Module :: Gas consumed in DAI transfer (cold access) is :");
         assertEq(IERC20(dai).balanceOf(proxima424),amountOfDAIToSend);
     }
 
@@ -171,11 +172,11 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in DAI transfer (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in DAI transfer (warm access) is mentioned above");
+        console.log(prevGas-gasleft());    
         assertEq(IERC20(dai).balanceOf(proxima424),amountOfDAIToSend+prevBalance);
     }
 
@@ -201,11 +202,11 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in DAI Approval (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in DAI Approval (cold access) is mentioned above");
         assertEq(IERC20(dai).allowance(userSA,proxima424),amountOfDAIToApprove);
     }
 
@@ -238,11 +239,12 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in DAI Approval (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in DAI Approval (warm access) is mentioned above");
+        
         assertEq(IERC20(dai).allowance(userSA,proxima424),2*amountOfDAIToApprove);
     }
 
@@ -264,11 +266,12 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in minting ERC20 (cold mint) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in minting ERC20 (cold mint) is mentioned above");
+        
         assertEq(mockToken.balanceOf(proxima424),amountToMint);
     }
 
@@ -292,11 +295,11 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
+        console.log("ECDSA Module :: Gas consumed in minting ERC20 (warm mint) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
         console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in minting ERC20 (warm mint) is mentioned above");
         assertEq(mockToken.balanceOf(proxima424),2*amountToMint);
     }
 
