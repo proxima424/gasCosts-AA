@@ -21,9 +21,7 @@ contract SessionKeyManager is BaseAuthorizationModule {
      * @dev returns the SessionStorage object for a given smartAccount
      * @param smartAccount Smart Account address
      */
-    function getSessionKeys(
-        address smartAccount
-    ) external view returns (SessionStorage memory) {
+    function getSessionKeys(address smartAccount) external view returns (SessionStorage memory) {
         return userSessions[smartAccount];
     }
 
@@ -42,15 +40,14 @@ contract SessionKeyManager is BaseAuthorizationModule {
      * @param userOpHash Hash of the User Operation to be validated.
      * @return sigValidationResult 0 if signature is valid, SIG_VALIDATION_FAILED otherwise.
      */
-    function validateUserOp(
-        UserOperation calldata userOp,
-        bytes32 userOpHash
-    ) external view virtual returns (uint256) {
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash)
+        external
+        view
+        virtual
+        returns (uint256)
+    {
         SessionStorage storage sessionKeyStorage = _getSessionData(msg.sender);
-        (bytes memory moduleSignature, ) = abi.decode(
-            userOp.signature,
-            (bytes, address)
-        );
+        (bytes memory moduleSignature,) = abi.decode(userOp.signature, (bytes, address));
         (
             uint48 validUntil,
             uint48 validAfter,
@@ -58,37 +55,20 @@ contract SessionKeyManager is BaseAuthorizationModule {
             bytes memory sessionKeyData,
             bytes32[] memory merkleProof,
             bytes memory sessionKeySignature
-        ) = abi.decode(
-                moduleSignature,
-                (uint48, uint48, address, bytes, bytes32[], bytes)
-            );
+        ) = abi.decode(moduleSignature, (uint48, uint48, address, bytes, bytes32[], bytes));
 
-        bytes32 leaf = keccak256(
-            abi.encodePacked(
-                validUntil,
-                validAfter,
-                sessionValidationModule,
-                sessionKeyData
-            )
-        );
-        if (
-            !MerkleProof.verify(merkleProof, sessionKeyStorage.merkleRoot, leaf)
-        ) {
+        bytes32 leaf = keccak256(abi.encodePacked(validUntil, validAfter, sessionValidationModule, sessionKeyData));
+        if (!MerkleProof.verify(merkleProof, sessionKeyStorage.merkleRoot, leaf)) {
             revert("SessionNotApproved");
         }
-        return
-            _packValidationData(
-                //_packValidationData expects true if sig validation has failed, false otherwise
-                !ISessionValidationModule(sessionValidationModule)
-                    .validateSessionUserOp(
-                        userOp,
-                        userOpHash,
-                        sessionKeyData,
-                        sessionKeySignature
-                    ),
-                validUntil,
-                validAfter
-            );
+        return _packValidationData(
+            //_packValidationData expects true if sig validation has failed, false otherwise
+            !ISessionValidationModule(sessionValidationModule).validateSessionUserOp(
+                userOp, userOpHash, sessionKeyData, sessionKeySignature
+            ),
+            validUntil,
+            validAfter
+        );
     }
 
     /**
@@ -97,10 +77,7 @@ contract SessionKeyManager is BaseAuthorizationModule {
      * @param _signature Signature over the the _dataHash.
      * @return always returns 0xffffffff as signing messages is not supported by SessionKeys
      */
-    function isValidSignature(
-        bytes32 _dataHash,
-        bytes memory _signature
-    ) public view override returns (bytes4) {
+    function isValidSignature(bytes32 _dataHash, bytes memory _signature) public view override returns (bytes4) {
         return 0xffffffff; // do not support it here
     }
 
@@ -109,9 +86,7 @@ contract SessionKeyManager is BaseAuthorizationModule {
      * @param _account Smart Account address
      * @return sessionKeyStorage SessionStorage object at storage
      */
-    function _getSessionData(
-        address _account
-    ) internal view returns (SessionStorage storage sessionKeyStorage) {
+    function _getSessionData(address _account) internal view returns (SessionStorage storage sessionKeyStorage) {
         sessionKeyStorage = userSessions[_account];
     }
 }

@@ -15,7 +15,7 @@ import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/
 
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {ISwapRouter} from '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 import {SwapHelper} from "./Mocks/SwapHelper.sol";
 
@@ -35,14 +35,13 @@ interface ISAFactory {
     ) external view returns (address _account);
 }
 
-interface IECDSARegistryModule{
+interface ISAOwnershipRegistryModule {
     function getOwner(address smartAccount) external view returns (address);
 }
 
-
-contract TestSwap is Test{
-
+contract TestERC20 is Test {
     using ECDSA for bytes32;
+
     uint256 public forkNumber;
 
     uint256 public smartAccountDeploymentIndex;
@@ -51,12 +50,13 @@ contract TestSwap is Test{
     address public usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address public weth9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address public swapRouter = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+    address public baseUserSA;
     address public userSA;
     address public ecdsaOwnershipModuleAddress;
     address public smartContractOwnershipModuleAddress;
     address public smartAccountFactoryAddress;
 
-    address public smartAccountOwner;
+    address public baseSAOwner;
     uint256 public saOwnerKey;
     address public alice;
     address public bob;
@@ -83,64 +83,68 @@ contract TestSwap is Test{
         scwOwnershipRegistryModule = new SmartContractOwnershipRegistryModule();
         ecdsaOwnershipRegistryModule = new EcdsaOwnershipRegistryModule();
         swapHelper = new SwapHelper(ISwapRouter(swapRouter));
-        
-        // Fund all contracts
-        vm.deal(entryPointAdr,5 ether);
-        vm.deal(ecdsaOwnershipModuleAddress,5 ether);
-        vm.deal(smartAccountFactoryAddress,5 ether);
-        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
-        
+
         // Set Addresses
         ecdsaOwnershipModuleAddress = address(ecdsaOwnershipRegistryModule);
         smartContractOwnershipModuleAddress = address(scwOwnershipRegistryModule);
         smartAccountFactoryAddress = address(smartAccountFactory);
 
         // Initializes EOA Addresses
-        (smartAccountOwner, saOwnerKey) = makeAddrAndKey("smartAccountOwner");
+        (baseSAOwner, saOwnerKey) = makeAddrAndKey("smartAccountOwner");
         alice = makeAddr("alice");
         bob = makeAddr("bob");
         proxima424 = makeAddr("proxima424");
 
         // Deploy SA with smartAccountOwner as owner and fund it with 5 ether
-        bytes memory txnData1 = abi.encodeWithSignature("initForSmartAccount(address)", smartAccountOwner);
-        userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
+        bytes memory txnData1 = abi.encodeWithSignature("initForSmartAccount(address)", baseSAOwner);
+        baseUserSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData1, smartAccountDeploymentIndex
         );
-        vm.deal(userSA,5 ether);
+        bytes memory txnData2 = abi.encodeWithSignature("initForSmartAccount(address)", baseUserSA);
+        userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
+            smartContractOwnershipModuleAddress, txnData2, smartAccountDeploymentIndex + 1
+        );
+
+        // Fund all contracts
+        vm.deal(userSA, 5 ether);
+        vm.deal(entryPointAdr, 5 ether);
+        vm.deal(ecdsaOwnershipModuleAddress, 5 ether);
+        vm.deal(smartAccountFactoryAddress, 5 ether);
+        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
     }
 
     function testSwap() public {
         // Fund userSA with DAI
         vm.startPrank(richDAI);
-        IERC20(dai).transfer(userSA,5*10**18);
+        IERC20(dai).transfer(userSA, 5 * 10 ** 18);
         vm.stopPrank();
 
         // Approve this contract of DAI
         vm.startPrank(userSA);
-        IERC20(dai).approve(address(swapHelper),type(uint256).max);
+        IERC20(dai).approve(address(swapHelper), type(uint256).max);
         vm.stopPrank();
 
         // Construct userOp to call swapExactInputSingle on swapHelper
-        bytes memory txnData = abi.encodeWithSignature("swapExactInputSingle(uint256)", 5*10**18);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(swapHelper), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        bytes memory txnData = abi.encodeWithSignature("swapExactInputSingle(uint256)", 5 * 10 ** 18);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(swapHelper), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
         // Send the userOp to EntryPoint
-        console.log("ECDSA Module :: Gas consumed to swap DAI<>WETH via UniswapV3 is:" );
+        console.log("SA Auth Module :: Gas consumed to swap DAI<>WETH via UniswapV3 is:");
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-
-
+        console.log(prevGas - gasleft());
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -162,9 +166,8 @@ contract TestSwap is Test{
         op.maxPriorityFeePerGas = 1;
     }
 
-
-    // 
-    function getSender(UserOperation memory userOp) internal pure returns (address){
+    //
+    function getSender(UserOperation memory userOp) internal pure returns (address) {
         return userOp.sender;
     }
 
@@ -181,10 +184,15 @@ contract TestSwap is Test{
         bytes32 hashPaymasterAndData = keccak256(userOp.paymasterAndData);
 
         return abi.encode(
-            sender, nonce,
-            hashInitCode, hashCallData,
-            callGasLimit, verificationGasLimit, preVerificationGas,
-            maxFeePerGas, maxPriorityFeePerGas,
+            sender,
+            nonce,
+            hashInitCode,
+            hashCallData,
+            callGasLimit,
+            verificationGasLimit,
+            preVerificationGas,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
             hashPaymasterAndData
         );
     }
@@ -192,6 +200,4 @@ contract TestSwap is Test{
     function hash(UserOperation memory userOp) internal pure returns (bytes32) {
         return keccak256(pack(userOp));
     }
-  
 }
-

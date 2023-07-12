@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
+
 import "./ISessionValidationModule.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
@@ -27,7 +28,7 @@ contract ERC20SessionValidationModule {
             address token = address(bytes20(_sessionKeyData[20:40]));
 
             // we expect _op.callData to be `SmartAccount.executeCall(to, value, calldata)` calldata
-            (address tokenAddr, uint256 callValue, ) = abi.decode(
+            (address tokenAddr, uint256 callValue,) = abi.decode(
                 _op.callData[4:], // skip selector
                 (address, uint256, bytes)
             );
@@ -43,9 +44,7 @@ contract ERC20SessionValidationModule {
         bytes calldata data;
         {
             uint256 offset = uint256(bytes32(_op.callData[4 + 64:4 + 96]));
-            uint256 length = uint256(
-                bytes32(_op.callData[4 + offset:4 + offset + 32])
-            );
+            uint256 length = uint256(bytes32(_op.callData[4 + offset:4 + offset + 32]));
             //we expect data to be the `IERC20.transfer` calldata
             data = _op.callData[4 + offset + 32:4 + offset + 32 + length];
         }
@@ -55,10 +54,6 @@ contract ERC20SessionValidationModule {
         if (uint256(bytes32(data[36:68])) > maxAmount) {
             revert("ERC20SV Max Amount Exceeded");
         }
-        return
-            ECDSA.recover(
-                ECDSA.toEthSignedMessageHash(_userOpHash),
-                _sessionKeySignature
-            ) == sessionKey;
+        return ECDSA.recover(ECDSA.toEthSignedMessageHash(_userOpHash), _sessionKeySignature) == sessionKey;
     }
 }

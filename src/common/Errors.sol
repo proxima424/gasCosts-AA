@@ -45,11 +45,7 @@ contract ModuleManagerErrors {
      * @param returnedModule the module that has been found at modules[prevModule]
      * @param prevModule previous module address provided at call
      */
-    error ModuleAndPrevModuleMismatch(
-        address expectedModule,
-        address returnedModule,
-        address prevModule
-    );
+    error ModuleAndPrevModuleMismatch(address expectedModule, address returnedModule, address prevModule);
 
     /**
      * @notice Throws when trying to execute transaction from module that is not enabled
@@ -64,12 +60,7 @@ contract ModuleManagerErrors {
      * @param funcLength length of function signatures array
      * @param operationLength length of operation types array. 0 if there's no operations
      */
-    error WrongBatchProvided(
-        uint256 destLength,
-        uint256 valueLength,
-        uint256 funcLength,
-        uint256 operationLength
-    );
+    error WrongBatchProvided(uint256 destLength, uint256 valueLength, uint256 funcLength, uint256 operationLength);
 }
 
 contract SmartAccountErrors is BaseSmartAccountErrors, ModuleManagerErrors {
@@ -135,11 +126,7 @@ contract SmartAccountErrors is BaseSmartAccountErrors, ModuleManagerErrors {
      * @param contractSignatureLength length of a contract signature
      * @param signatureLength the whole signature length
      */
-    error WrongContractSignatureFormat(
-        uint256 uintS,
-        uint256 contractSignatureLength,
-        uint256 signatureLength
-    );
+    error WrongContractSignatureFormat(uint256 uintS, uint256 contractSignatureLength, uint256 signatureLength);
 
     /**
      * @notice Throws when isValidSignature for the conrtact signature and data hash return differs from EIP1271 Magic Value

@@ -48,8 +48,7 @@ contract SmartAccountNoAuth is
     // keccak256(
     //     "AccountTx(address to,uint256 value,bytes data,uint8 operation,uint256 targetTxGas,uint256 baseGas,uint256 gasPrice,uint256 tokenGasPriceFactor,address gasToken,address refundReceiver,uint256 nonce)"
     // );
-    bytes32 internal constant ACCOUNT_TX_TYPEHASH =
-        0xda033865d68bf4a40a5a7cb4159a99e33dba8569e65ea3e38222eb12d9e66eee;
+    bytes32 internal constant ACCOUNT_TX_TYPEHASH = 0xda033865d68bf4a40a5a7cb4159a99e33dba8569e65ea3e38222eb12d9e66eee;
 
     // Owner storage. Deprecated. Left for storage layout compatibility
     address public owner_deprecated;
@@ -65,15 +64,9 @@ contract SmartAccountNoAuth is
 
     // Events
 
-    event ImplementationUpdated(
-        address indexed oldImplementation,
-        address indexed newImplementation
-    );
+    event ImplementationUpdated(address indexed oldImplementation, address indexed newImplementation);
     event AccountHandlePayment(bytes32 indexed txHash, uint256 indexed payment);
-    event SmartAccountReceivedNativeToken(
-        address indexed sender,
-        uint256 indexed value
-    );
+    event SmartAccountReceivedNativeToken(address indexed sender, uint256 indexed value);
 
     /**
      * @dev Constructor that sets the owner of the contract and the entry point contract.
@@ -83,8 +76,9 @@ contract SmartAccountNoAuth is
     constructor(IEntryPoint anEntryPoint) {
         modules[SENTINEL_MODULES] = SENTINEL_MODULES;
         _self = address(this);
-        if (address(anEntryPoint) == address(0))
+        if (address(anEntryPoint) == address(0)) {
             revert EntryPointCannotBeZero();
+        }
         _entryPoint = anEntryPoint;
         _chainId = block.chainid;
     }
@@ -95,8 +89,9 @@ contract SmartAccountNoAuth is
      * @notice This modifier is marked as internal and can only be called within the contract itself.
      */
     function _requireFromEntryPointOrSelf() internal view {
-        if (msg.sender != address(entryPoint()) && msg.sender != address(this))
+        if (msg.sender != address(entryPoint()) && msg.sender != address(this)) {
             revert CallerIsNotEntryPointOrSelf(msg.sender);
+        }
     }
 
     /**
@@ -105,8 +100,9 @@ contract SmartAccountNoAuth is
      * @notice This modifier is marked as internal and can only be called within the contract itself.
      */
     function _requireFromEntryPoint() internal view {
-        if (msg.sender != address(entryPoint()))
+        if (msg.sender != address(entryPoint())) {
             revert CallerIsNotEntryPoint(msg.sender);
+        }
     }
 
     /**
@@ -117,8 +113,9 @@ contract SmartAccountNoAuth is
     function updateImplementation(address _implementation) public virtual {
         _requireFromEntryPointOrSelf();
         require(_implementation != address(0), "Address cannot be zero");
-        if (!_implementation.isContract())
+        if (!_implementation.isContract()) {
             revert InvalidImplementation(_implementation);
+        }
         address oldImplementation;
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -133,11 +130,7 @@ contract SmartAccountNoAuth is
      * @dev Returns the address of the implementation contract associated with this contract.
      * @notice The implementation address is stored in the contract's storage slot with index 0.
      */
-    function getImplementation()
-        external
-        view
-        returns (address _implementation)
-    {
+    function getImplementation() external view returns (address _implementation) {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             _implementation := sload(address())
@@ -149,14 +142,7 @@ contract SmartAccountNoAuth is
      * @return bytes32 The domain separator hash.
      */
     function domainSeparator() public view returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    DOMAIN_SEPARATOR_TYPEHASH,
-                    block.chainid,
-                    address(this)
-                )
-            );
+        return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, block.chainid, address(this)));
     }
 
     /**
@@ -196,11 +182,12 @@ contract SmartAccountNoAuth is
      * @notice reinit is not possible, as _initialSetupModules reverts if the account is already initialized
      *         which is when there is at least one enabled module
      */
-    function init(
-        address handler,
-        address moduleSetupContract,
-        bytes calldata moduleSetupData
-    ) external virtual override returns (address) {
+    function init(address handler, address moduleSetupContract, bytes calldata moduleSetupData)
+        external
+        virtual
+        override
+        returns (address)
+    {
         _setFallbackHandler(handler);
         return _initialSetupModules(moduleSetupContract, moduleSetupData);
     }
@@ -212,11 +199,7 @@ contract SmartAccountNoAuth is
      * @param value Amount of native tokens to send along with the transaction
      * @param func Data of the transaction
      */
-    function executeCall_s1m(
-        address dest,
-        uint256 value,
-        bytes calldata func
-    ) public {
+    function executeCall_s1m(address dest, uint256 value, bytes calldata func) public {
         _requireFromEntryPoint();
         _call(dest, value, func);
     }
@@ -227,11 +210,7 @@ contract SmartAccountNoAuth is
      * @param value Amount of native tokens to send along with the transaction
      * @param func Data of the transaction
      */
-    function executeCall(
-        address dest,
-        uint256 value,
-        bytes calldata func
-    ) external {
+    function executeCall(address dest, uint256 value, bytes calldata func) external {
         executeCall_s1m(dest, value, func);
     }
 
@@ -242,18 +221,12 @@ contract SmartAccountNoAuth is
      * @param value Amounts of native tokens to send along with the transactions
      * @param func Data of the transactions
      */
-    function executeBatchCall_4by(
-        address[] calldata dest,
-        uint256[] calldata value,
-        bytes[] calldata func
-    ) public {
+    function executeBatchCall_4by(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) public {
         _requireFromEntryPoint();
-        if (
-            dest.length == 0 ||
-            dest.length != value.length ||
-            value.length != func.length
-        ) revert WrongBatchProvided(dest.length, value.length, func.length, 0);
-        for (uint256 i; i < dest.length; ) {
+        if (dest.length == 0 || dest.length != value.length || value.length != func.length) {
+            revert WrongBatchProvided(dest.length, value.length, func.length, 0);
+        }
+        for (uint256 i; i < dest.length;) {
             _call(dest[i], value[i], func[i]);
             unchecked {
                 ++i;
@@ -267,11 +240,7 @@ contract SmartAccountNoAuth is
      * @param value Amounts of native tokens to send along with the transactions
      * @param func Data of the transactions
      */
-    function executeBatchCall(
-        address[] calldata dest,
-        uint256[] calldata value,
-        bytes[] calldata func
-    ) external {
+    function executeBatchCall(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
         executeBatchCall_4by(dest, value, func);
     }
 
@@ -284,38 +253,26 @@ contract SmartAccountNoAuth is
      */
     function _call(address target, uint256 value, bytes memory data) internal {
         assembly {
-            let success := call(
-                gas(),
-                target,
-                value,
-                add(data, 0x20),
-                mload(data),
-                0,
-                0
-            )
+            let success := call(gas(), target, value, add(data, 0x20), mload(data), 0, 0)
             let ptr := mload(0x40)
             returndatacopy(ptr, 0, returndatasize())
-            if iszero(success) {
-                revert(ptr, returndatasize())
-            }
+            if iszero(success) { revert(ptr, returndatasize()) }
         }
     }
 
-    function validateUserOp(
-        UserOperation calldata userOp,
-        bytes32 userOpHash,
-        uint256 missingAccountFunds
-    ) external virtual override returns (uint256 validationData) {
-        if (msg.sender != address(entryPoint()))
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+        external
+        virtual
+        override
+        returns (uint256 validationData)
+    {
+        if (msg.sender != address(entryPoint())) {
             revert CallerIsNotAnEntryPoint(msg.sender);
+        }
 
-        (, address validationModule) = abi.decode(
-            userOp.signature,
-            (bytes, address)
-        );
+        (, address validationModule) = abi.decode(userOp.signature, (bytes, address));
         if (address(modules[validationModule]) != address(0)) {
-            validationData = IAuthorizationModule(validationModule)
-                .validateUserOp(userOp, userOpHash);
+            validationData = IAuthorizationModule(validationModule).validateUserOp(userOp, userOpHash);
         } else {
             revert WrongValidationModule(validationModule);
         }
@@ -334,20 +291,15 @@ contract SmartAccountNoAuth is
      * @param signature Signature byte array associated with ethSignedDataHash
      * @return bytes4 value.
      */
-    function isValidSignature(
-        bytes32 ethSignedDataHash,
-        bytes memory signature
-    ) public view override returns (bytes4) {
-        (bytes memory moduleSignature, address validationModule) = abi.decode(
-            signature,
-            (bytes, address)
-        );
+    function isValidSignature(bytes32 ethSignedDataHash, bytes memory signature)
+        public
+        view
+        override
+        returns (bytes4)
+    {
+        (bytes memory moduleSignature, address validationModule) = abi.decode(signature, (bytes, address));
         if (address(modules[validationModule]) != address(0)) {
-            return
-                ISignatureValidator(validationModule).isValidSignature(
-                    ethSignedDataHash,
-                    moduleSignature
-                );
+            return ISignatureValidator(validationModule).isValidSignature(ethSignedDataHash, moduleSignature);
         } else {
             revert WrongValidationModule(validationModule);
         }
@@ -372,10 +324,7 @@ contract SmartAccountNoAuth is
      * @param withdrawAddress target to send to
      * @param amount to withdraw
      */
-    function withdrawDepositTo(
-        address payable withdrawAddress,
-        uint256 amount
-    ) public payable {
+    function withdrawDepositTo(address payable withdrawAddress, uint256 amount) public payable {
         _requireFromEntryPointOrSelf();
         entryPoint().withdrawTo(withdrawAddress, amount);
     }
@@ -396,10 +345,12 @@ contract SmartAccountNoAuth is
      * @notice This can only be done via userOp or a selfcall.
      * @notice Enables the module `module` for the wallet.
      */
-    function setupAndEnableModule(
-        address setupContract,
-        bytes memory setupData
-    ) external virtual override returns (address) {
+    function setupAndEnableModule(address setupContract, bytes memory setupData)
+        external
+        virtual
+        override
+        returns (address)
+    {
         _requireFromEntryPointOrSelf();
         return _setupAndEnableModule(setupContract, setupData);
     }
@@ -426,9 +377,7 @@ contract SmartAccountNoAuth is
      * @param _interfaceId The interface identifier, as specified in ERC165
      * @return `true` if the contract implements `_interfaceID`
      */
-    function supportsInterface(
-        bytes4 _interfaceId
-    ) external view virtual override returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) external view virtual override returns (bool) {
         return _interfaceId == type(IERC165).interfaceId; // 0x01ffc9a7
     }
 

@@ -14,10 +14,8 @@ import {MockERC721} from "./Mocks/MockERC721.sol";
 import {ERC4337Utils} from "../src/ERC4337Utils.sol";
 import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
-
 import {IERC721} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-
 
 interface ISAFactory {
     function deployCounterFactualAccount(address moduleSetupContract, bytes calldata moduleSetupData, uint256 index)
@@ -35,28 +33,31 @@ interface ISAFactory {
     ) external view returns (address _account);
 }
 
-interface IECDSARegistryModule{
+interface ISAOwnershipRegistryModule {
     function getOwner(address smartAccount) external view returns (address);
 }
 
-
 contract TestERC721 is Test {
-
     using ECDSA for bytes32;
+
     uint256 public forkNumber;
 
     uint256 public smartAccountDeploymentIndex;
     address public entryPointAdr = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
+    address public dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address public baseUserSA;
     address public userSA;
     address public ecdsaOwnershipModuleAddress;
     address public smartContractOwnershipModuleAddress;
     address public smartAccountFactoryAddress;
 
-    address public smartAccountOwner;
+    address public baseSAOwner;
     uint256 public saOwnerKey;
     address public alice;
     address public bob;
     address public proxima424;
+    // Address which holds >100M DAI on Ethereum Mainnet
+    address public richDAI = 0x40ec5B33f54e0E8A33A975908C5BA1c14e5BbbDf;
 
     IEntryPoint public entryPoint;
     SmartAccount public smartAccountImplementation;
@@ -77,193 +78,209 @@ contract TestERC721 is Test {
         scwOwnershipRegistryModule = new SmartContractOwnershipRegistryModule();
         ecdsaOwnershipRegistryModule = new EcdsaOwnershipRegistryModule();
         mockERC721 = new MockERC721("Mock","Mock");
-        
-        // Fund all contracts
-        vm.deal(entryPointAdr,5 ether);
-        vm.deal(ecdsaOwnershipModuleAddress,5 ether);
-        vm.deal(smartAccountFactoryAddress,5 ether);
-        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
-        
+
         // Set Addresses
         ecdsaOwnershipModuleAddress = address(ecdsaOwnershipRegistryModule);
         smartContractOwnershipModuleAddress = address(scwOwnershipRegistryModule);
         smartAccountFactoryAddress = address(smartAccountFactory);
 
         // Initializes EOA Addresses
-        (smartAccountOwner, saOwnerKey) = makeAddrAndKey("smartAccountOwner");
+        (baseSAOwner, saOwnerKey) = makeAddrAndKey("smartAccountOwner");
         alice = makeAddr("alice");
         bob = makeAddr("bob");
         proxima424 = makeAddr("proxima424");
 
         // Deploy SA with smartAccountOwner as owner and fund it with 5 ether
-        bytes memory txnData1 = abi.encodeWithSignature("initForSmartAccount(address)", smartAccountOwner);
-        userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
+        bytes memory txnData1 = abi.encodeWithSignature("initForSmartAccount(address)", baseSAOwner);
+        baseUserSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData1, smartAccountDeploymentIndex
         );
-        vm.deal(userSA,5 ether);
+        bytes memory txnData2 = abi.encodeWithSignature("initForSmartAccount(address)", baseUserSA);
+        userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
+            smartContractOwnershipModuleAddress, txnData2, smartAccountDeploymentIndex + 1
+        );
+
+        // Fund all contracts
+        vm.deal(userSA, 5 ether);
+        vm.deal(entryPointAdr, 5 ether);
+        vm.deal(ecdsaOwnershipModuleAddress, 5 ether);
+        vm.deal(smartAccountFactoryAddress, 5 ether);
+        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
     }
 
-    function testERC721TransferCold() public{
+    function testERC721TransferCold() public {
         // Mint userSA an NFT with tokeniD 0
-        mockERC721.mint(userSA,0);
+        mockERC721.mint(userSA, 0);
 
         // Construct userOp to send ERC721from userSA to proxima424
-        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424,0);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424, 0);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in NFT transfer (cold access) is :");
+        console.log("SA Auth Module :: Gas consumed in NFT transfer (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
+        console.log(prevGas - gasleft());
         // INVARIANT := NFT tokenId 0 transferred from userSA to proxima424
-        assertEq(mockERC721.ownerOf(0),proxima424);
+        assertEq(mockERC721.ownerOf(0), proxima424);
     }
 
-    function testERC721TransferWarm() public{
-        // Mint userSA,proxima424 an NFT with tokeniD 0,1 
-        mockERC721.mint(userSA,0);
-        mockERC721.mint(proxima424,1);
+    function testERC721TransferWarm() public {
+        // Mint userSA,proxima424 an NFT with tokeniD 0,1
+        mockERC721.mint(userSA, 0);
+        mockERC721.mint(proxima424, 1);
 
         // Construct userOp to send ERC721from userSA to proxima424
-        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424,0);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424, 0);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in NFT transfer (warm access) is :");
+        console.log("SA Auth Module :: Gas consumed in NFT transfer (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());    
+        console.log(prevGas - gasleft());
         // NFT with tokenId 0 is transferred from userSA to proxima424 ( holds another NFT already)
-        assertEq(mockERC721.ownerOf(0),proxima424);
+        assertEq(mockERC721.ownerOf(0), proxima424);
     }
 
-    function testERC721MintCold() public{
-        // Construct userOp to mint ERC721 to userSA 
-        bytes memory txnData = abi.encodeWithSignature("mint(address,uint256)", userSA,0);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+    function testERC721MintCold() public {
+        // Construct userOp to mint ERC721 to userSA
+        bytes memory txnData = abi.encodeWithSignature("mint(address,uint256)", userSA, 0);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in minting NFT (cold access) is :");
+        console.log("SA Auth Module :: Gas consumed in minting NFT (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
+        console.log(prevGas - gasleft());
         // NFT with tokenId 0 is minted to userSA
-        assertEq(mockERC721.ownerOf(0),userSA);
+        assertEq(mockERC721.ownerOf(0), userSA);
     }
 
-    function testERC721MintWarm() public{
+    function testERC721MintWarm() public {
         // Mint NFT to userSA to make the storage slot warm
-        mockERC721.mint(userSA,0);
+        mockERC721.mint(userSA, 0);
 
-        // Construct userOp to mint ERC721 to userSA 
-        bytes memory txnData = abi.encodeWithSignature("mint(address,uint256)", userSA, 1);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        // Construct userOp to mint ERC721 to userSA
+        bytes memory txnData = abi.encodeWithSignature("mint(address,uint256)", userSA, 1);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in minting NFT (warm access) is :");
+        console.log("SA Auth Module :: Gas consumed in minting NFT (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
+        console.log(prevGas - gasleft());
         // NFT with tokenId 0 is minted to userSA
-        assertEq(mockERC721.ownerOf(1),userSA);
+        assertEq(mockERC721.ownerOf(1), userSA);
     }
 
-    function testERC721ApproveWarm() public{
+    function testERC721ApproveWarm() public {
         // Mint NFT to userSA and approve proxima424
         // To make the _tokenApproval[0] storage slot warm
-        mockERC721.mint(userSA,0);
+        mockERC721.mint(userSA, 0);
         vm.startPrank(userSA);
-        mockERC721.approve(proxima424,0);
+        mockERC721.approve(proxima424, 0);
         vm.stopPrank();
-        assertEq(mockERC721.getApproved(0),proxima424);
+        assertEq(mockERC721.getApproved(0), proxima424);
 
         // Construct userOp to approve Alice of ERC721 tokenId 0
-        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", alice, 0);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", alice, 0);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in approving NFT (warm access) is :");
+        console.log("SA Auth Module :: Gas consumed in approving NFT (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
+        console.log(prevGas - gasleft());
         // NFT with tokenId 0 is minted to userSA
         assertEq(mockERC721.getApproved(0), alice);
     }
 
-    function testERC721ApproveCold() public{
+    function testERC721ApproveCold() public {
         // Mint NFT to userSA
-        mockERC721.mint(userSA,0);
+        mockERC721.mint(userSA, 0);
 
         // Construct userOp to approve proxima424 of ERC721 tokenId 0
-        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", proxima424, 0);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", proxima424, 0);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockERC721), 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        bytes memory sigForECDSA = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+        userOp.signature = abi.encode(sigForECDSA,smartContractOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in approving NFT (cold access) is :");
+        console.log("SA Auth Module :: Gas consumed in approving NFT (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
+        console.log(prevGas - gasleft());
         // NFT with tokenId 0 is minted to userSA
         assertEq(mockERC721.getApproved(0), proxima424);
     }
@@ -287,9 +304,8 @@ contract TestERC721 is Test {
         op.maxPriorityFeePerGas = 1;
     }
 
-
-    // 
-    function getSender(UserOperation memory userOp) internal pure returns (address){
+    //
+    function getSender(UserOperation memory userOp) internal pure returns (address) {
         return userOp.sender;
     }
 
@@ -306,10 +322,15 @@ contract TestERC721 is Test {
         bytes32 hashPaymasterAndData = keccak256(userOp.paymasterAndData);
 
         return abi.encode(
-            sender, nonce,
-            hashInitCode, hashCallData,
-            callGasLimit, verificationGasLimit, preVerificationGas,
-            maxFeePerGas, maxPriorityFeePerGas,
+            sender,
+            nonce,
+            hashInitCode,
+            hashCallData,
+            callGasLimit,
+            verificationGasLimit,
+            preVerificationGas,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
             hashPaymasterAndData
         );
     }
@@ -318,7 +339,5 @@ contract TestERC721 is Test {
         return keccak256(pack(userOp));
     }
 
-
-
-
 }
+

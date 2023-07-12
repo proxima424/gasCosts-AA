@@ -16,7 +16,6 @@ import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
-
 interface ISAFactory {
     function deployCounterFactualAccount(address moduleSetupContract, bytes calldata moduleSetupData, uint256 index)
         external
@@ -33,27 +32,31 @@ interface ISAFactory {
     ) external view returns (address _account);
 }
 
-interface IECDSARegistryModule{
+interface ISAOwnershipRegistryModule {
     function getOwner(address smartAccount) external view returns (address);
 }
 
-contract TestTemplate is Test {
-
+contract TestERC20 is Test {
     using ECDSA for bytes32;
+
     uint256 public forkNumber;
 
     uint256 public smartAccountDeploymentIndex;
     address public entryPointAdr = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
+    address public dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address public baseUserSA;
     address public userSA;
     address public ecdsaOwnershipModuleAddress;
     address public smartContractOwnershipModuleAddress;
     address public smartAccountFactoryAddress;
 
-    address public smartAccountOwner;
+    address public baseSAOwner;
     uint256 public saOwnerKey;
     address public alice;
     address public bob;
     address public proxima424;
+    // Address which holds >100M DAI on Ethereum Mainnet
+    address public richDAI = 0x40ec5B33f54e0E8A33A975908C5BA1c14e5BbbDf;
 
     IEntryPoint public entryPoint;
     SmartAccount public smartAccountImplementation;
@@ -72,33 +75,89 @@ contract TestTemplate is Test {
         smartAccountFactory = new SmartAccountFactory(address(smartAccountImplementation));
         scwOwnershipRegistryModule = new SmartContractOwnershipRegistryModule();
         ecdsaOwnershipRegistryModule = new EcdsaOwnershipRegistryModule();
-        
-        // Fund all contracts
-        vm.deal(entryPointAdr,5 ether);
-        vm.deal(ecdsaOwnershipModuleAddress,5 ether);
-        vm.deal(smartAccountFactoryAddress,5 ether);
-        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
-        
+
         // Set Addresses
         ecdsaOwnershipModuleAddress = address(ecdsaOwnershipRegistryModule);
         smartContractOwnershipModuleAddress = address(scwOwnershipRegistryModule);
         smartAccountFactoryAddress = address(smartAccountFactory);
 
         // Initializes EOA Addresses
-        (smartAccountOwner, saOwnerKey) = makeAddrAndKey("smartAccountOwner");
+        (baseSAOwner, saOwnerKey) = makeAddrAndKey("smartAccountOwner");
         alice = makeAddr("alice");
         bob = makeAddr("bob");
         proxima424 = makeAddr("proxima424");
 
         // Deploy SA with smartAccountOwner as owner and fund it with 5 ether
-        bytes memory txnData1 = abi.encodeWithSignature("initForSmartAccount(address)", smartAccountOwner);
-        userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
+        bytes memory txnData1 = abi.encodeWithSignature("initForSmartAccount(address)", baseSAOwner);
+        baseUserSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData1, smartAccountDeploymentIndex
         );
-        vm.deal(userSA,5 ether);
+        bytes memory txnData2 = abi.encodeWithSignature("initForSmartAccount(address)", baseUserSA);
+        userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
+            smartContractOwnershipModuleAddress, txnData2, smartAccountDeploymentIndex + 1
+        );
+
+        // Fund all contracts
+        vm.deal(userSA, 5 ether);
+        vm.deal(entryPointAdr, 5 ether);
+        vm.deal(ecdsaOwnershipModuleAddress, 5 ether);
+        vm.deal(smartAccountFactoryAddress, 5 ether);
+        vm.deal(smartContractOwnershipModuleAddress, 5 ether);
     }
 
-    
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*  HELPER FUNCTIONS FOR CONSTRUCTING AND SIGNING USER-OP      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    
+    function fillUserOp(EntryPoint _entryPoint, address _sender, bytes memory _data)
+        internal
+        view
+        returns (UserOperation memory op)
+    {
+        op.sender = _sender;
+        op.nonce = _entryPoint.getNonce(_sender, 0);
+        op.callData = _data;
+        op.callGasLimit = 10000000;
+        op.verificationGasLimit = 10000000;
+        op.preVerificationGas = 50000;
+        op.maxFeePerGas = 50000;
+        op.maxPriorityFeePerGas = 1;
+    }
+
+    //
+    function getSender(UserOperation memory userOp) internal pure returns (address) {
+        return userOp.sender;
+    }
+
+    function pack(UserOperation memory userOp) internal pure returns (bytes memory ret) {
+        address sender = getSender(userOp);
+        uint256 nonce = userOp.nonce;
+        bytes32 hashInitCode = keccak256(userOp.initCode);
+        bytes32 hashCallData = keccak256(userOp.callData);
+        uint256 callGasLimit = userOp.callGasLimit;
+        uint256 verificationGasLimit = userOp.verificationGasLimit;
+        uint256 preVerificationGas = userOp.preVerificationGas;
+        uint256 maxFeePerGas = userOp.maxFeePerGas;
+        uint256 maxPriorityFeePerGas = userOp.maxPriorityFeePerGas;
+        bytes32 hashPaymasterAndData = keccak256(userOp.paymasterAndData);
+
+        return abi.encode(
+            sender,
+            nonce,
+            hashInitCode,
+            hashCallData,
+            callGasLimit,
+            verificationGasLimit,
+            preVerificationGas,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+            hashPaymasterAndData
+        );
+    }
+
+    function hash(UserOperation memory userOp) internal pure returns (bytes32) {
+        return keccak256(pack(userOp));
+    }
+
 }
+

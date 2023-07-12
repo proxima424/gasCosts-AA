@@ -20,11 +20,7 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
     string public constant NAME = "ECDSA Ownership Registry Module";
     string public constant VERSION = "0.1.0";
 
-    event OwnershipTransferred(
-        address indexed smartAccount,
-        address indexed oldOwner,
-        address indexed newOwner
-    );
+    event OwnershipTransferred(address indexed smartAccount, address indexed oldOwner, address indexed newOwner);
 
     error NoOwnerRegisteredForSmartAccount(address smartAccount);
     error AlreadyInitedForSmartAccount(address smartAccount);
@@ -42,8 +38,9 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      * @param owner The owner of the Smart Account.
      */
     function initForSmartAccount(address owner) external returns (address) {
-        if (smartAccountOwners[msg.sender] != address(0))
+        if (smartAccountOwners[msg.sender] != address(0)) {
             revert AlreadyInitedForSmartAccount(msg.sender);
+        }
         if (_isSmartContract(owner)) revert NotEOA(owner);
         if (owner == address(0)) revert ZeroAddressNotAllowedAsOwner();
         smartAccountOwners[msg.sender] = owner;
@@ -76,8 +73,9 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      */
     function getOwner(address smartAccount) external view returns (address) {
         address owner = smartAccountOwners[smartAccount];
-        if (owner == address(0))
+        if (owner == address(0)) {
             revert NoOwnerRegisteredForSmartAccount(smartAccount);
+        }
         return owner;
     }
 
@@ -85,10 +83,7 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      * @dev Transfers ownership for smartAccount and emits an event
      * @param newOwner Smart Account address.
      */
-    function _transferOwnership(
-        address smartAccount,
-        address newOwner
-    ) internal {
+    function _transferOwnership(address smartAccount, address newOwner) internal {
         address _oldOwner = smartAccountOwners[smartAccount];
         smartAccountOwners[smartAccount] = newOwner;
         emit OwnershipTransferred(smartAccount, _oldOwner, newOwner);
@@ -112,14 +107,13 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      * @param userOpHash Hash of the User Operation to be validated.
      * @return sigValidationResult 0 if signature is valid, SIG_VALIDATION_FAILED otherwise.
      */
-    function validateUserOp(
-        UserOperation calldata userOp,
-        bytes32 userOpHash
-    ) external view virtual returns (uint256) {
-        (bytes memory cleanEcdsaSignature, ) = abi.decode(
-            userOp.signature,
-            (bytes, address)
-        );
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash)
+        external
+        view
+        virtual
+        returns (uint256)
+    {
+        (bytes memory cleanEcdsaSignature,) = abi.decode(userOp.signature, (bytes, address));
         if (_verifySignature(userOpHash, cleanEcdsaSignature, userOp.sender)) {
             return VALIDATION_SUCCESS;
         }
@@ -133,12 +127,14 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      * @param moduleSignature Signature to be validated.
      * @return EIP1271_MAGIC_VALUE if signature is valid, 0xffffffff otherwise.
      */
-    function isValidSignature(
-        bytes32 dataHash,
-        bytes memory moduleSignature
-    ) public view virtual override returns (bytes4) {
-        return
-            isValidSignatureForAddress(dataHash, moduleSignature, msg.sender);
+    function isValidSignature(bytes32 dataHash, bytes memory moduleSignature)
+        public
+        view
+        virtual
+        override
+        returns (bytes4)
+    {
+        return isValidSignatureForAddress(dataHash, moduleSignature, msg.sender);
     }
 
     /**
@@ -149,11 +145,12 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      * @param smartAccount expected signer Smart Account address.
      * @return EIP1271_MAGIC_VALUE if signature is valid, 0xffffffff otherwise.
      */
-    function isValidSignatureForAddress(
-        bytes32 dataHash,
-        bytes memory moduleSignature,
-        address smartAccount
-    ) public view virtual returns (bytes4) {
+    function isValidSignatureForAddress(bytes32 dataHash, bytes memory moduleSignature, address smartAccount)
+        public
+        view
+        virtual
+        returns (bytes4)
+    {
         if (_verifySignature(dataHash, moduleSignature, smartAccount)) {
             return EIP1271_MAGIC_VALUE;
         }
@@ -171,18 +168,17 @@ contract EcdsaOwnershipRegistryModule is BaseAuthorizationModule {
      * @param smartAccount expected signer Smart Account address.
      * @return true if signature is valid, false otherwise.
      */
-    function _verifySignature(
-        bytes32 dataHash,
-        bytes memory signature,
-        address smartAccount
-    ) internal view returns (bool) {
+    function _verifySignature(bytes32 dataHash, bytes memory signature, address smartAccount)
+        internal
+        view
+        returns (bool)
+    {
         address expectedSigner = smartAccountOwners[smartAccount];
-        if (expectedSigner == address(0))
+        if (expectedSigner == address(0)) {
             revert NoOwnerRegisteredForSmartAccount(smartAccount);
+        }
         if (signature.length < 65) revert WrongSignatureLength();
-        address recovered = (dataHash.toEthSignedMessageHash()).recover(
-            signature
-        );
+        address recovered = (dataHash.toEthSignedMessageHash()).recover(signature);
         if (expectedSigner == recovered) {
             return true;
         }
