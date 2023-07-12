@@ -2,16 +2,16 @@
 
 Using Foundry's Fork Testing Environment to get gas snapshot report for transactions using Biconomy AA Ownerless Module </br>
 Test Cases to Cover by forking ETH-Mainnet : </br>
-- [X] DAI Transfer :: `ECDSA : 160981,182882`
+- [X] DAI Transfer :: `ECDSA : 160981,182882` `SA Ownership : 177790,199690`
 - [ ] Native ETH Transfer
 - [ ] Wallet Deployment
-- [X] NFT Transfer :: `ECDSA : 157366,181766`
-- [X] NFT Mint ::  `ECDSA : 178708,214608`
-- [X] Uniswap Swap :: `ECDSA : 301008`
+- [X] NFT Transfer :: `ECDSA : 157366,181766` `SA Ownership : 174175,198575`
+- [X] NFT Mint ::  `ECDSA : 178708,214608` `SA Ownership : 195513,231413`
+- [X] Uniswap Swap :: `ECDSA : 301008` `SA Ownership : 317908`
 - [ ] AAVE deposit Collateral
 - [ ] Uniswap V3 Mint Position
 - [ ] Lido Finance Deposit Ether
-- [ ] Do all with SAOwnershipAuthModule
+- [X] Do all with SAOwnershipAuthModule
 - [ ] Replicate on other chains
 
 </br>
