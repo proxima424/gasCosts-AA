@@ -52,11 +52,11 @@ abstract contract BaseSmartAccount is IAccount, BaseSmartAccountErrors {
      *      If the account doesn't use time-range, it is enough to return SIG_VALIDATION_FAILED value (1) for signature failure.
      *      Note that the validation code cannot use block.timestamp (or block.number) directly.
      */
-    function validateUserOp(
-        UserOperation calldata userOp,
-        bytes32 userOpHash,
-        uint256 missingAccountFunds
-    ) external virtual override returns (uint256);
+    function validateUserOp(UserOperation calldata userOp, bytes32 userOpHash, uint256 missingAccountFunds)
+        external
+        virtual
+        override
+        returns (uint256);
 
     /**
      * Validate the nonce of the UserOperation.
@@ -86,10 +86,7 @@ abstract contract BaseSmartAccount is IAccount, BaseSmartAccountErrors {
      */
     function _payPrefund(uint256 missingAccountFunds) internal virtual {
         if (missingAccountFunds != 0) {
-            payable(msg.sender).call{
-                value: missingAccountFunds,
-                gas: type(uint256).max
-            }("");
+            payable(msg.sender).call{value: missingAccountFunds, gas: type(uint256).max}("");
             //ignore failure (its EntryPoint's job to verify, not account.)
         }
     }
@@ -102,9 +99,8 @@ abstract contract BaseSmartAccount is IAccount, BaseSmartAccountErrors {
      * @param moduleSetupData data containing address of the Setup Contract and a setup data
      * @notice devs need to make sure it is only callable once (use initializer modifier or state check restrictions)
      */
-    function init(
-        address handler,
-        address moduleSetupContract,
-        bytes calldata moduleSetupData
-    ) external virtual returns (address);
+    function init(address handler, address moduleSetupContract, bytes calldata moduleSetupData)
+        external
+        virtual
+        returns (address);
 }

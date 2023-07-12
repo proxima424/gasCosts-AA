@@ -9,11 +9,7 @@ import {ModuleManagerErrors} from "../common/Errors.sol";
  * @title Module Manager - A contract that manages modules that can execute transactions
  *        on behalf of the Smart Account via this contract.
  */
-abstract contract ModuleManager is
-    SelfAuthorized,
-    Executor,
-    ModuleManagerErrors
-{
+abstract contract ModuleManager is SelfAuthorized, Executor, ModuleManagerErrors {
     address internal constant SENTINEL_MODULES = address(0x1);
 
     mapping(address => address) internal modules;
@@ -23,13 +19,7 @@ abstract contract ModuleManager is
     event DisabledModule(address module);
     event ExecutionFromModuleSuccess(address indexed module);
     event ExecutionFromModuleFailure(address indexed module);
-    event ModuleTransaction(
-        address module,
-        address to,
-        uint256 value,
-        bytes data,
-        Enum.Operation operation
-    );
+    event ModuleTransaction(address module, address to, uint256 value, bytes data, Enum.Operation operation);
 
     /**
      * @dev Returns array of modules. Useful for a widget
@@ -38,21 +28,18 @@ abstract contract ModuleManager is
      * @return array Array of modules.
      * @return next Start of the next page.
      */
-    function getModulesPaginated(
-        address start,
-        uint256 pageSize
-    ) external view returns (address[] memory array, address next) {
+    function getModulesPaginated(address start, uint256 pageSize)
+        external
+        view
+        returns (address[] memory array, address next)
+    {
         // Init array with max page size
         array = new address[](pageSize);
 
         // Populate return array
         uint256 moduleCount;
         address currentModule = modules[start];
-        while (
-            currentModule != address(0x0) &&
-            currentModule != SENTINEL_MODULES &&
-            moduleCount < pageSize
-        ) {
+        while (currentModule != address(0x0) && currentModule != SENTINEL_MODULES && moduleCount < pageSize) {
             array[moduleCount] = currentModule;
             currentModule = modules[currentModule];
             moduleCount++;
@@ -79,8 +66,9 @@ abstract contract ModuleManager is
      */
     function _enableModule(address module) internal virtual {
         // Module address cannot be null or sentinel.
-        if (module == address(0) || module == SENTINEL_MODULES)
+        if (module == address(0) || module == SENTINEL_MODULES) {
             revert ModuleCannotBeZeroOrSentinel(module);
+        }
         // Module cannot be added twice.
         if (modules[module] != address(0)) revert ModuleAlreadyEnabled(module);
 
@@ -94,19 +82,13 @@ abstract contract ModuleManager is
      * @dev Setups module for this Smart Account and enables it.
      * @notice This SHOULD only be done via userOp or a selfcall.
      */
-    function setupAndEnableModule(
-        address setupContract,
-        bytes memory setupData
-    ) external virtual returns (address);
+    function setupAndEnableModule(address setupContract, bytes memory setupData) external virtual returns (address);
 
     /**
      * @dev Setups module for this Smart Account and enables it.
      * @notice This can only be done via userOp or a selfcall.
      */
-    function _setupAndEnableModule(
-        address setupContract,
-        bytes memory setupData
-    ) internal virtual returns (address) {
+    function _setupAndEnableModule(address setupContract, bytes memory setupData) internal virtual returns (address) {
         address module = _setupModule(setupContract, setupData);
         _enableModule(module);
         return module;
@@ -119,19 +101,14 @@ abstract contract ModuleManager is
      * @param prevModule Module that pointed to the module to be removed in the linked list
      * @param module Module to be removed.
      */
-    function _disableModule(
-        address prevModule,
-        address module
-    ) internal virtual {
+    function _disableModule(address prevModule, address module) internal virtual {
         // Validate module address and check that it corresponds to module index.
-        if (module == address(0) || module == SENTINEL_MODULES)
+        if (module == address(0) || module == SENTINEL_MODULES) {
             revert ModuleCannotBeZeroOrSentinel(module);
-        if (modules[prevModule] != module)
-            revert ModuleAndPrevModuleMismatch(
-                module,
-                modules[prevModule],
-                prevModule
-            );
+        }
+        if (modules[prevModule] != module) {
+            revert ModuleAndPrevModuleMismatch(module, modules[prevModule], prevModule);
+        }
         modules[prevModule] = modules[module];
         delete modules[module];
         emit DisabledModule(module);
@@ -154,25 +131,19 @@ abstract contract ModuleManager is
         uint256 txGas
     ) public virtual returns (bool success) {
         // Only whitelisted modules are allowed.
-        if (msg.sender == SENTINEL_MODULES || modules[msg.sender] == address(0))
+        if (msg.sender == SENTINEL_MODULES || modules[msg.sender] == address(0)) {
             revert ModuleNotEnabled(msg.sender);
+        }
         // Execute transaction without further confirmations.
         // Can add guards here to allow delegatecalls for selected modules (msg.senders) only
-        success = execute(
-            to,
-            value,
-            data,
-            operation,
-            txGas == 0 ? gasleft() : txGas
-        );
+        success = execute(to, value, data, operation, txGas == 0 ? gasleft() : txGas);
     }
 
-    function execTransactionFromModule(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation
-    ) public virtual returns (bool) {
+    function execTransactionFromModule(address to, uint256 value, bytes memory data, Enum.Operation operation)
+        public
+        virtual
+        returns (bool)
+    {
         return execTransactionFromModule(to, value, data, operation, 0);
     }
 
@@ -183,12 +154,10 @@ abstract contract ModuleManager is
      * @param data Data payload of module transaction.
      * @param operation Operation type of module transaction.
      */
-    function execTransactionFromModuleReturnData(
-        address to,
-        uint256 value,
-        bytes memory data,
-        Enum.Operation operation
-    ) public returns (bool success, bytes memory returnData) {
+    function execTransactionFromModuleReturnData(address to, uint256 value, bytes memory data, Enum.Operation operation)
+        public
+        returns (bool success, bytes memory returnData)
+    {
         success = execTransactionFromModule(to, value, data, operation);
         // solhint-disable-next-line no-inline-assembly
         assembly {
@@ -220,41 +189,26 @@ abstract contract ModuleManager is
         Enum.Operation[] calldata operations
     ) public virtual returns (bool success) {
         if (
-            to.length == 0 ||
-            to.length != value.length ||
-            value.length != data.length ||
-            data.length != operations.length
-        )
-            revert WrongBatchProvided(
-                to.length,
-                value.length,
-                data.length,
-                operations.length
-            );
+            to.length == 0 || to.length != value.length || value.length != data.length
+                || data.length != operations.length
+        ) {
+            revert WrongBatchProvided(to.length, value.length, data.length, operations.length);
+        }
 
         // Only whitelisted modules are allowed.
-        if (msg.sender == SENTINEL_MODULES || modules[msg.sender] == address(0))
+        if (msg.sender == SENTINEL_MODULES || modules[msg.sender] == address(0)) {
             revert ModuleNotEnabled(msg.sender);
+        }
 
-        for (uint256 i; i < to.length; ) {
+        for (uint256 i; i < to.length;) {
             // Execute transaction without further confirmations.
-            success = execute(
-                to[i],
-                value[i],
-                data[i],
-                operations[i],
-                gasleft()
-            );
+            success = execute(to[i], value[i], data[i], operations[i], gasleft());
             if (success) {
-                emit ModuleTransaction(
-                    msg.sender,
-                    to[i],
-                    value[i],
-                    data[i],
-                    operations[i]
-                );
+                emit ModuleTransaction(msg.sender, to[i], value[i], data[i], operations[i]);
                 emit ExecutionFromModuleSuccess(msg.sender);
-            } else emit ExecutionFromModuleFailure(msg.sender);
+            } else {
+                emit ExecutionFromModuleFailure(msg.sender);
+            }
             unchecked {
                 ++i;
             }
@@ -275,46 +229,26 @@ abstract contract ModuleManager is
      *                            a registry module that serves several smart accounts
      * @param setupData modules setup data (a standard calldata for the module setup contract)
      */
-    function _initialSetupModules(
-        address setupContract,
-        bytes memory setupData
-    ) internal virtual returns (address) {
-        address initialAuthorizationModule = _setupModule(
-            setupContract,
-            setupData
-        );
+    function _initialSetupModules(address setupContract, bytes memory setupData) internal virtual returns (address) {
+        address initialAuthorizationModule = _setupModule(setupContract, setupData);
 
         // Module address cannot be null or sentinel.
-        if (
-            initialAuthorizationModule == address(0) ||
-            initialAuthorizationModule == SENTINEL_MODULES
-        ) revert ModuleCannotBeZeroOrSentinel(initialAuthorizationModule);
+        if (initialAuthorizationModule == address(0) || initialAuthorizationModule == SENTINEL_MODULES) {
+            revert ModuleCannotBeZeroOrSentinel(initialAuthorizationModule);
+        }
 
         modules[initialAuthorizationModule] = SENTINEL_MODULES;
         modules[SENTINEL_MODULES] = initialAuthorizationModule;
         return initialAuthorizationModule;
     }
 
-    function _setupModule(
-        address setupContract,
-        bytes memory setupData
-    ) internal returns (address module) {
+    function _setupModule(address setupContract, bytes memory setupData) internal returns (address module) {
         if (setupContract == address(0)) revert("Wrong Module Setup Address");
         assembly {
-            let success := call(
-                gas(),
-                setupContract,
-                0,
-                add(setupData, 0x20),
-                mload(setupData),
-                0,
-                0
-            )
+            let success := call(gas(), setupContract, 0, add(setupData, 0x20), mload(setupData), 0, 0)
             let ptr := mload(0x40)
             returndatacopy(ptr, 0, returndatasize())
-            if iszero(success) {
-                revert(ptr, returndatasize())
-            }
+            if iszero(success) { revert(ptr, returndatasize()) }
             module := mload(ptr)
         }
     }

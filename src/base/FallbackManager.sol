@@ -14,10 +14,7 @@ abstract contract FallbackManager is SelfAuthorized, FallbackManagerErrors {
     bytes32 internal constant FALLBACK_HANDLER_STORAGE_SLOT =
         0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d4;
 
-    event ChangedFallbackHandler(
-        address indexed previousHandler,
-        address indexed handler
-    );
+    event ChangedFallbackHandler(address indexed previousHandler, address indexed handler);
 
     // solhint-disable-next-line payable-fallback,no-complex-fallback
     fallback() external {
@@ -25,27 +22,15 @@ abstract contract FallbackManager is SelfAuthorized, FallbackManagerErrors {
         // solhint-disable-next-line no-inline-assembly
         assembly {
             let handler := sload(slot)
-            if iszero(handler) {
-                return(0, 0)
-            }
+            if iszero(handler) { return(0, 0) }
             calldatacopy(0, 0, calldatasize())
             // The msg.sender address is shifted to the left by 12 bytes to remove the padding
             // Then the address without padding is stored right after the calldata
             mstore(calldatasize(), shl(96, caller()))
             // Add 20 bytes for the address appended add the end
-            let success := call(
-                gas(),
-                handler,
-                0,
-                0,
-                add(calldatasize(), 20),
-                0,
-                0
-            )
+            let success := call(gas(), handler, 0, 0, add(calldatasize(), 20), 0, 0)
             returndatacopy(0, 0, returndatasize())
-            if iszero(success) {
-                revert(0, returndatasize())
-            }
+            if iszero(success) { revert(0, returndatasize()) }
             return(0, returndatasize())
         }
     }

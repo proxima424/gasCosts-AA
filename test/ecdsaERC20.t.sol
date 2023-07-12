@@ -17,7 +17,6 @@ import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
-
 interface ISAFactory {
     function deployCounterFactualAccount(address moduleSetupContract, bytes calldata moduleSetupData, uint256 index)
         external
@@ -34,12 +33,13 @@ interface ISAFactory {
     ) external view returns (address _account);
 }
 
-interface IECDSARegistryModule{
+interface IECDSARegistryModule {
     function getOwner(address smartAccount) external view returns (address);
 }
 
 contract TestERC20 is Test {
     using ECDSA for bytes32;
+
     uint256 public forkNumber;
 
     uint256 public smartAccountDeploymentIndex;
@@ -64,7 +64,6 @@ contract TestERC20 is Test {
     SmartContractOwnershipRegistryModule public scwOwnershipRegistryModule;
     EcdsaOwnershipRegistryModule public ecdsaOwnershipRegistryModule;
     MockERC20 public mockToken;
-    
 
     // This function is called before every test case
     function setUp() public {
@@ -78,14 +77,13 @@ contract TestERC20 is Test {
         scwOwnershipRegistryModule = new SmartContractOwnershipRegistryModule();
         ecdsaOwnershipRegistryModule = new EcdsaOwnershipRegistryModule();
         mockToken = new MockERC20("Mock","Mock");
-        
 
         // Fund all contracts
-        vm.deal(entryPointAdr,5 ether);
-        vm.deal(ecdsaOwnershipModuleAddress,5 ether);
-        vm.deal(smartAccountFactoryAddress,5 ether);
+        vm.deal(entryPointAdr, 5 ether);
+        vm.deal(ecdsaOwnershipModuleAddress, 5 ether);
+        vm.deal(smartAccountFactoryAddress, 5 ether);
         vm.deal(smartContractOwnershipModuleAddress, 5 ether);
-        
+
         // Set Addresses
         ecdsaOwnershipModuleAddress = address(ecdsaOwnershipRegistryModule);
         smartContractOwnershipModuleAddress = address(scwOwnershipRegistryModule);
@@ -102,7 +100,7 @@ contract TestERC20 is Test {
         userSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData1, smartAccountDeploymentIndex
         );
-        vm.deal(userSA,5 ether);
+        vm.deal(userSA, 5 ether);
     }
 
     // Deployment of Smart Account with ECDSA Auth Module
@@ -113,30 +111,30 @@ contract TestERC20 is Test {
         address newUserSA = ISAFactory(smartAccountFactoryAddress).deployCounterFactualAccount(
             ecdsaOwnershipModuleAddress, txnData, smartAccountDeploymentIndex
         );
-        console.logUint(prevGas-gasleft());
+        console.logUint(prevGas - gasleft());
 
         // INVARIANT ==> SmartAccountOwner is set as owner of userSA
-        assertEq(alice,IECDSARegistryModule(ecdsaOwnershipModuleAddress).getOwner(newUserSA));
+        assertEq(alice, IECDSARegistryModule(ecdsaOwnershipModuleAddress).getOwner(newUserSA));
     }
 
-    function testERC20ColdTransfer() public { 
-       // Fund userSA  with DAI
+    function testERC20ColdTransfer() public {
+        // Fund userSA  with DAI
         vm.startPrank(richDAI);
         IERC20(dai).transfer(userSA, 5000);
         vm.stopPrank();
 
         // Construct userOp to send 2500 DAI from userSA to proxima424
         uint256 amountOfDAIToSend = 2500;
-        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountOfDAIToSend);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData );
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountOfDAIToSend);
+        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        userOp.signature = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
@@ -144,13 +142,12 @@ contract TestERC20 is Test {
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        console.log("ECDSA Module :: Gas consumed in DAI transfer (cold access) is :");
-        assertEq(IERC20(dai).balanceOf(proxima424),amountOfDAIToSend);
+        console.log(prevGas - gasleft());
+        assertEq(IERC20(dai).balanceOf(proxima424), amountOfDAIToSend);
     }
 
-    function testERC20WarmTransfer() public { 
-       // Fund userSA and proxima424 with DAI
+    function testERC20WarmTransfer() public {
+        // Fund userSA and proxima424 with DAI
         vm.startPrank(richDAI);
         IERC20(dai).transfer(userSA, 5000);
         IERC20(dai).transfer(proxima424, 5000);
@@ -159,16 +156,16 @@ contract TestERC20 is Test {
         // Construct userOp to send 2500 DAI from userSA to proxima424
         uint256 prevBalance = IERC20(dai).balanceOf(proxima424);
         uint256 amountOfDAIToSend = 2500;
-        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountOfDAIToSend);      
+        bytes memory txnData = abi.encodeWithSignature("transfer(address,uint256)", proxima424, amountOfDAIToSend);
         bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData);
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        userOp.signature = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
@@ -176,8 +173,8 @@ contract TestERC20 is Test {
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());    
-        assertEq(IERC20(dai).balanceOf(proxima424),amountOfDAIToSend+prevBalance);
+        console.log(prevGas - gasleft());
+        assertEq(IERC20(dai).balanceOf(proxima424), amountOfDAIToSend + prevBalance);
     }
 
     function testERC20ColdApprove() public {
@@ -188,17 +185,17 @@ contract TestERC20 is Test {
 
         // Construct userOp to approve 2500 DAI from userSA to proxima424
         uint256 amountOfDAIToApprove = 2500;
-        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", proxima424, amountOfDAIToApprove);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData); 
+        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", proxima424, amountOfDAIToApprove);
+        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData);
 
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        userOp.signature = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
@@ -206,8 +203,8 @@ contract TestERC20 is Test {
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        assertEq(IERC20(dai).allowance(userSA,proxima424),amountOfDAIToApprove);
+        console.log(prevGas - gasleft());
+        assertEq(IERC20(dai).allowance(userSA, proxima424), amountOfDAIToApprove);
     }
 
     function testERC20WarmApprove() public {
@@ -216,26 +213,26 @@ contract TestERC20 is Test {
         IERC20(dai).transfer(userSA, 5000);
         vm.stopPrank();
 
-        // To make the allowance mapping storage slot warm, 
+        // To make the allowance mapping storage slot warm,
         // Approve it initially of 2500 DAI
         uint256 amountOfDAIToApprove = 2500;
         vm.startPrank(userSA);
-        IERC20(dai).approve(proxima424,amountOfDAIToApprove);
+        IERC20(dai).approve(proxima424, amountOfDAIToApprove);
         vm.stopPrank();
-        assertEq(IERC20(dai).allowance(userSA,proxima424),amountOfDAIToApprove);
+        assertEq(IERC20(dai).allowance(userSA, proxima424), amountOfDAIToApprove);
 
         // Construct userOp to again approve 2500 DAI from userSA to proxima424
-        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", proxima424, 2*amountOfDAIToApprove);      
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData); 
+        bytes memory txnData = abi.encodeWithSignature("approve(address,uint256)", proxima424, 2 * amountOfDAIToApprove);
+        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", dai, 0, txnData);
 
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        userOp.signature = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
@@ -243,9 +240,9 @@ contract TestERC20 is Test {
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        
-        assertEq(IERC20(dai).allowance(userSA,proxima424),2*amountOfDAIToApprove);
+        console.log(prevGas - gasleft());
+
+        assertEq(IERC20(dai).allowance(userSA, proxima424), 2 * amountOfDAIToApprove);
     }
 
     function testMintMockERC20Cold() public {
@@ -253,16 +250,17 @@ contract TestERC20 is Test {
         uint256 amountToMint = 5000;
         //Construct userOp
         bytes memory txnData = abi.encodeWithSignature("mint(address,uint256)", proxima424, amountToMint);
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockToken), 0, txnData);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockToken), 0, txnData);
 
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        userOp.signature = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
@@ -270,28 +268,29 @@ contract TestERC20 is Test {
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        
-        assertEq(mockToken.balanceOf(proxima424),amountToMint);
+        console.log(prevGas - gasleft());
+
+        assertEq(mockToken.balanceOf(proxima424), amountToMint);
     }
 
     function testMintMockERC20Warm() public {
         // Mint some MockToken ERC20 to proxima424 to make the storage slot warm
         uint256 amountToMint = 5000;
-        mockToken.mint(proxima424,amountToMint);
+        mockToken.mint(proxima424, amountToMint);
 
         //Construct userOp
         bytes memory txnData = abi.encodeWithSignature("mint(address,uint256)", proxima424, amountToMint);
-        bytes memory txnData1 = abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockToken), 0, txnData);
+        bytes memory txnData1 =
+            abi.encodeWithSignature("executeCall(address,uint256,bytes)", address(mockToken), 0, txnData);
 
-        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)),userSA, txnData1);
+        UserOperation memory userOp = fillUserOp(EntryPoint(payable(entryPointAdr)), userSA, txnData1);
 
         bytes32 hashed1 = hash(userOp);
-        bytes32 hashed2 = keccak256(abi.encode(hashed1,entryPointAdr,block.chainid));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey,hashed2.toEthSignedMessageHash());
+        bytes32 hashed2 = keccak256(abi.encode(hashed1, entryPointAdr, block.chainid));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(saOwnerKey, hashed2.toEthSignedMessageHash());
         bytes memory tempSignature = abi.encodePacked(r, s, v);
-        userOp.signature = abi.encode(tempSignature,ecdsaOwnershipModuleAddress);
-        
+        userOp.signature = abi.encode(tempSignature, ecdsaOwnershipModuleAddress);
+
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
@@ -299,8 +298,8 @@ contract TestERC20 is Test {
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
-        console.log(prevGas-gasleft());
-        assertEq(mockToken.balanceOf(proxima424),2*amountToMint);
+        console.log(prevGas - gasleft());
+        assertEq(mockToken.balanceOf(proxima424), 2 * amountToMint);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -322,9 +321,8 @@ contract TestERC20 is Test {
         op.maxPriorityFeePerGas = 1;
     }
 
-
-    // 
-    function getSender(UserOperation memory userOp) internal pure returns (address){
+    //
+    function getSender(UserOperation memory userOp) internal pure returns (address) {
         return userOp.sender;
     }
 
@@ -341,10 +339,15 @@ contract TestERC20 is Test {
         bytes32 hashPaymasterAndData = keccak256(userOp.paymasterAndData);
 
         return abi.encode(
-            sender, nonce,
-            hashInitCode, hashCallData,
-            callGasLimit, verificationGasLimit, preVerificationGas,
-            maxFeePerGas, maxPriorityFeePerGas,
+            sender,
+            nonce,
+            hashInitCode,
+            hashCallData,
+            callGasLimit,
+            verificationGasLimit,
+            preVerificationGas,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
             hashPaymasterAndData
         );
     }

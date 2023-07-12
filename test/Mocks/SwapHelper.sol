@@ -2,12 +2,11 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import {TransferHelper} from '@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol';
-import {ISwapRouter} from '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import {TransferHelper} from "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import {ISwapRouter} from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 contract SwapHelper {
-
-   // For the scope of these swap examples,
+    // For the scope of these swap examples,
     // we will detail the design considerations when using
     // `exactInput`, `exactInputSingle`, `exactOutput`, and  `exactOutputSingle`.
 
@@ -45,17 +44,16 @@ contract SwapHelper {
 
         // Naively set amountOutMinimum to 0. In production, use an oracle or other data source to choose a safer value for amountOutMinimum.
         // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact input amount.
-        ISwapRouter.ExactInputSingleParams memory params =
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: DAI,
-                tokenOut: WETH9,
-                fee: poolFee,
-                recipient: msg.sender,
-                deadline: block.timestamp,
-                amountIn: amountIn,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: DAI,
+            tokenOut: WETH9,
+            fee: poolFee,
+            recipient: msg.sender,
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
 
         // The call to `exactInputSingle` executes the swap.
         amountOut = swapRouter.exactInputSingle(params);
@@ -75,17 +73,16 @@ contract SwapHelper {
         // In production, you should choose the maximum amount to spend based on oracles or other data sources to acheive a better swap.
         TransferHelper.safeApprove(DAI, address(swapRouter), amountInMaximum);
 
-        ISwapRouter.ExactOutputSingleParams memory params =
-            ISwapRouter.ExactOutputSingleParams({
-                tokenIn: DAI,
-                tokenOut: WETH9,
-                fee: poolFee,
-                recipient: msg.sender,
-                deadline: block.timestamp,
-                amountOut: amountOut,
-                amountInMaximum: amountInMaximum,
-                sqrtPriceLimitX96: 0
-            });
+        ISwapRouter.ExactOutputSingleParams memory params = ISwapRouter.ExactOutputSingleParams({
+            tokenIn: DAI,
+            tokenOut: WETH9,
+            fee: poolFee,
+            recipient: msg.sender,
+            deadline: block.timestamp,
+            amountOut: amountOut,
+            amountInMaximum: amountInMaximum,
+            sqrtPriceLimitX96: 0
+        });
 
         // Executes the swap returning the amountIn needed to spend to receive the desired amountOut.
         amountIn = swapRouter.exactOutputSingle(params);
@@ -97,10 +94,4 @@ contract SwapHelper {
             TransferHelper.safeTransfer(DAI, msg.sender, amountInMaximum - amountIn);
         }
     }
-
 }
-
-
-
-
-

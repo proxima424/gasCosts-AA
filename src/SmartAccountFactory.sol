@@ -16,21 +16,11 @@ contract SmartAccountFactory {
     address public immutable basicImplementation;
     DefaultCallbackHandler public immutable minimalHandler;
 
-    event AccountCreation(
-        address indexed account,
-        address indexed initialAuthModule,
-        uint256 indexed index
-    );
-    event AccountCreationWithoutIndex(
-        address indexed account,
-        address indexed initialAuthModule
-    );
+    event AccountCreation(address indexed account, address indexed initialAuthModule, uint256 indexed index);
+    event AccountCreationWithoutIndex(address indexed account, address indexed initialAuthModule);
 
     constructor(address _basicImplementation) {
-        require(
-            _basicImplementation != address(0),
-            "implementation cannot be zero"
-        );
+        require(_basicImplementation != address(0), "implementation cannot be zero");
         basicImplementation = _basicImplementation;
         minimalHandler = new DefaultCallbackHandler();
     }
@@ -48,33 +38,19 @@ contract SmartAccountFactory {
      *
      * @param index extra salt that allows to deploy more account if needed for same EOA (default 0)
      */
-    function deployCounterFactualAccount(
-        address moduleSetupContract,
-        bytes calldata moduleSetupData,
-        uint256 index
-    ) public returns (address proxy) {
+    function deployCounterFactualAccount(address moduleSetupContract, bytes calldata moduleSetupData, uint256 index)
+        public
+        returns (address proxy)
+    {
         // create initializer data based on init method and parameters
-        bytes memory initializer = getInitializer(
-            moduleSetupContract,
-            moduleSetupData
-        );
-        bytes32 salt = keccak256(
-            abi.encodePacked(keccak256(initializer), index)
-        );
+        bytes memory initializer = getInitializer(moduleSetupContract, moduleSetupData);
+        bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer), index));
 
-        bytes memory deploymentData = abi.encodePacked(
-            type(Proxy).creationCode,
-            uint256(uint160(basicImplementation))
-        );
+        bytes memory deploymentData = abi.encodePacked(type(Proxy).creationCode, uint256(uint160(basicImplementation)));
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            proxy := create2(
-                0x0,
-                add(0x20, deploymentData),
-                mload(deploymentData),
-                salt
-            )
+            proxy := create2(0x0, add(0x20, deploymentData), mload(deploymentData), salt)
         }
         require(address(proxy) != address(0), "Create2 call failed");
 
@@ -83,20 +59,10 @@ contract SmartAccountFactory {
         if (initializer.length > 0) {
             // solhint-disable-next-line no-inline-assembly
             assembly {
-                let success := call(
-                    gas(),
-                    proxy,
-                    0,
-                    add(initializer, 0x20),
-                    mload(initializer),
-                    0,
-                    0
-                )
+                let success := call(gas(), proxy, 0, add(initializer, 0x20), mload(initializer), 0, 0)
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0, returndatasize())
-                if iszero(success) {
-                    revert(ptr, returndatasize())
-                }
+                if iszero(success) { revert(ptr, returndatasize()) }
                 initialAuthorizationModule := mload(ptr)
             }
         }
@@ -105,51 +71,31 @@ contract SmartAccountFactory {
 
     /**
      * @notice Deploys account using create and points it to _implementation
-     
+     *  
      * @return proxy address of the deployed account
      */
-    function deployAccount(
-        address moduleSetupContract,
-        bytes calldata moduleSetupData
-    ) public returns (address proxy) {
-        bytes memory deploymentData = abi.encodePacked(
-            type(Proxy).creationCode,
-            uint256(uint160(basicImplementation))
-        );
+    function deployAccount(address moduleSetupContract, bytes calldata moduleSetupData)
+        public
+        returns (address proxy)
+    {
+        bytes memory deploymentData = abi.encodePacked(type(Proxy).creationCode, uint256(uint160(basicImplementation)));
 
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            proxy := create(
-                0x0,
-                add(0x20, deploymentData),
-                mload(deploymentData)
-            )
+            proxy := create(0x0, add(0x20, deploymentData), mload(deploymentData))
         }
         require(address(proxy) != address(0), "Create call failed");
 
-        bytes memory initializer = getInitializer(
-            moduleSetupContract,
-            moduleSetupData
-        );
+        bytes memory initializer = getInitializer(moduleSetupContract, moduleSetupData);
         address initialAuthorizationModule;
 
         if (initializer.length > 0) {
             // solhint-disable-next-line no-inline-assembly
             assembly {
-                let success := call(
-                    gas(),
-                    proxy,
-                    0,
-                    add(initializer, 0x20),
-                    mload(initializer),
-                    0,
-                    0
-                )
+                let success := call(gas(), proxy, 0, add(initializer, 0x20), mload(initializer), 0, 0)
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0, returndatasize())
-                if iszero(success) {
-                    revert(ptr, returndatasize())
-                }
+                if iszero(success) { revert(ptr, returndatasize()) }
                 initialAuthorizationModule := mload(ptr)
             }
         }
@@ -163,15 +109,12 @@ contract SmartAccountFactory {
      * @param moduleSetupData modules setup data (a standard calldata for the module setup contract)
      * @return initializer bytes for init method
      */
-    function getInitializer(
-        address moduleSetupContract,
-        bytes calldata moduleSetupData
-    ) internal view returns (bytes memory) {
-        return
-            abi.encodeCall(
-                BaseSmartAccount.init,
-                (address(minimalHandler), moduleSetupContract, moduleSetupData)
-            );
+    function getInitializer(address moduleSetupContract, bytes calldata moduleSetupData)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return abi.encodeCall(BaseSmartAccount.init, (address(minimalHandler), moduleSetupContract, moduleSetupData));
     }
 
     /**
@@ -184,20 +127,10 @@ contract SmartAccountFactory {
         uint256 index
     ) external view returns (address _account) {
         // create initializer data based on init method, _owner and minimalHandler
-        bytes memory initializer = getInitializer(
-            moduleSetupContract,
-            moduleSetupData
-        );
-        bytes memory code = abi.encodePacked(
-            type(Proxy).creationCode,
-            uint256(uint160(basicImplementation))
-        );
-        bytes32 salt = keccak256(
-            abi.encodePacked(keccak256(initializer), index)
-        );
-        bytes32 hash = keccak256(
-            abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(code))
-        );
+        bytes memory initializer = getInitializer(moduleSetupContract, moduleSetupData);
+        bytes memory code = abi.encodePacked(type(Proxy).creationCode, uint256(uint160(basicImplementation)));
+        bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer), index));
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(code)));
         _account = address(uint160(uint256(hash)));
     }
 }

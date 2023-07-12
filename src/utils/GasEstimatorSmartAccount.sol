@@ -16,12 +16,8 @@ contract GasEstimatorSmartAccount {
     ) external returns (bool success, bytes memory result, uint256 gas) {
         // solhint-disable
         uint256 initialGas = gasleft();
-        address _wallet = SmartAccountFactory(_factory)
-            .deployCounterFactualAccount(
-                _moduleSetupContract,
-                _moduleSetupData,
-                _index
-            );
+        address _wallet =
+            SmartAccountFactory(_factory).deployCounterFactualAccount(_moduleSetupContract, _moduleSetupData, _index);
         (success, result) = _actualWallet.call(_data);
         gas = initialGas - gasleft();
         // solhint-enable
