@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {Test} from "../lib/forge-std/src/Test.sol";
-import {console} from "../lib/forge-std/src/console.sol";
+import {Test} from "../../lib/forge-std/src/Test.sol";
+import {console} from "../../lib/forge-std/src/console.sol";
 import {EntryPoint} from "@account-abstraction/contracts/core/EntryPoint.sol";
-import {SmartAccount} from "../src/SmartAccount.sol";
-import {SmartAccountFactory} from "../src/SmartAccountFactory.sol";
-import {EcdsaOwnershipRegistryModule} from "../src/modules/EcdsaOwnershipRegistryModule.sol";
-import {SmartContractOwnershipRegistryModule} from "../src/modules/SmartContractOwnershipRegistryModule.sol";
-import {UserOperation} from "../lib/account-abstraction/contracts/interfaces/UserOperation.sol";
+import {SmartAccount} from "../../src/SmartAccount.sol";
+import {SmartAccountFactory} from "../../src/SmartAccountFactory.sol";
+import {EcdsaOwnershipRegistryModule} from "../../src/modules/EcdsaOwnershipRegistryModule.sol";
+import {SmartContractOwnershipRegistryModule} from "../../src/modules/SmartContractOwnershipRegistryModule.sol";
+import {UserOperation} from "../../lib/account-abstraction/contracts/interfaces/UserOperation.sol";
 
-import {ERC4337Utils} from "../src/ERC4337Utils.sol";
-import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {ERC4337Utils} from "../../src/ERC4337Utils.sol";
+import {ECDSA} from "../../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
-import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
 interface ISAFactory {

@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {Test} from "../lib/forge-std/src/Test.sol";
-import {console} from "../lib/forge-std/src/console.sol";
+import {Test} from "../../lib/forge-std/src/Test.sol";
+import {console} from "../../lib/forge-std/src/console.sol";
 import {EntryPoint} from "@account-abstraction/contracts/core/EntryPoint.sol";
-import {SmartAccount} from "../src/SmartAccount.sol";
-import {SmartAccountFactory} from "../src/SmartAccountFactory.sol";
-import {EcdsaOwnershipRegistryModule} from "../src/modules/EcdsaOwnershipRegistryModule.sol";
-import {SmartContractOwnershipRegistryModule} from "../src/modules/SmartContractOwnershipRegistryModule.sol";
-import {UserOperation} from "../lib/account-abstraction/contracts/interfaces/UserOperation.sol";
+import {SmartAccount} from "../../src/SmartAccount.sol";
+import {SmartAccountFactory} from "../../src/SmartAccountFactory.sol";
+import {EcdsaOwnershipRegistryModule} from "../../src/modules/EcdsaOwnershipRegistryModule.sol";
+import {SmartContractOwnershipRegistryModule} from "../../src/modules/SmartContractOwnershipRegistryModule.sol";
+import {UserOperation} from "../../lib/account-abstraction/contracts/interfaces/UserOperation.sol";
 
-import {ERC4337Utils} from "../src/ERC4337Utils.sol";
-import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {ERC4337Utils} from "../../src/ERC4337Utils.sol";
+import {ECDSA} from "../../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
-import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {MockERC20} from "./Mocks/MockERC20.sol";
+import {MockERC20} from "../Mocks/MockERC20.sol";
 
 interface ISAFactory {
     function deployCounterFactualAccount(address moduleSetupContract, bytes calldata moduleSetupData, uint256 index)
@@ -40,7 +40,7 @@ interface ISAOwnershipRegistryModule {
 contract TestERC20 is Test {
     using ECDSA for bytes32;
 
-    uint256 public forkNumber;
+    uint256 public ethFork;
 
     uint256 public smartAccountDeploymentIndex;
     address public entryPointAdr = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789;
@@ -68,8 +68,8 @@ contract TestERC20 is Test {
 
     // This function is called before every test case
     function setUp() public {
-        forkNumber = vm.createFork("https://eth.llamarpc.com");
-        vm.selectFork(forkNumber);
+        ethFork = vm.createFork("https://eth.llamarpc.com");
+        vm.selectFork(ethFork);
 
         // Make AA Deployments
         entryPoint = IEntryPoint(payable(entryPointAdr));
@@ -130,7 +130,7 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("SAOwnership Module :: Gas consumed in DAI transfer (cold access) is :");
+        console.log("Ethereum Mainnet :: SA Auth Module :: Gas consumed in DAI transfer (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -162,7 +162,7 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("SAOwnership Module :: Gas consumed in DAI transfer (warm access) is :");
+        console.log("Ethereum Mainnet :: SA Auth Module :: Gas consumed in DAI transfer (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -193,7 +193,7 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("SAOwnership Module :: Gas consumed in DAI Approval (cold access) is :");
+        console.log("Ethereum Mainnet :: SA Auth Module :: Gas consumed in DAI Approval (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -231,7 +231,7 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("SAOwnership Module:: Gas consumed in DAI Approval (warm access) is :");
+        console.log("Ethereum Mainnet :: SA Auth Module :: Gas consumed in DAI Approval (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -240,7 +240,7 @@ contract TestERC20 is Test {
         assertEq(IERC20(dai).allowance(userSA, proxima424), 2 * amountOfDAIToApprove);
     }
 
-    function testMintMockERC20Cold() public {
+    function testERC20MintMockCold() public {
         // Mint MockERC20 with address with zero balance
         uint256 amountToMint = 5000;
         //Construct userOp
@@ -260,7 +260,7 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("SAOwnership Module :: Gas consumed in minting ERC20 (cold mint) is :");
+        console.log("Ethereum Mainnet :: SA Auth Module :: Gas consumed in minting ERC20 (cold mint) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -269,7 +269,7 @@ contract TestERC20 is Test {
         assertEq(mockToken.balanceOf(proxima424), amountToMint);
     }
 
-    function testMintMockERC20Warm() public {
+    function testERC20MintMockWarm() public {
         // Mint some MockToken ERC20 to proxima424 to make the storage slot warm
         uint256 amountToMint = 5000;
         mockToken.mint(proxima424, amountToMint);
@@ -291,7 +291,7 @@ contract TestERC20 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("SAOwnership Module :: Gas consumed in minting ERC20 (warm mint) is :");
+        console.log("Ethereum Mainnet :: SA Auth Module :: Gas consumed in minting ERC20 (warm mint) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));

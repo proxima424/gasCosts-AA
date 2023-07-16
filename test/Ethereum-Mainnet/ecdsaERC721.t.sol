@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import {Test} from "../lib/forge-std/src/Test.sol";
-import {console} from "../lib/forge-std/src/console.sol";
+import {Test} from "../../lib/forge-std/src/Test.sol";
+import {console} from "../../lib/forge-std/src/console.sol";
 import {EntryPoint} from "@account-abstraction/contracts/core/EntryPoint.sol";
-import {SmartAccount} from "../src/SmartAccount.sol";
-import {SmartAccountFactory} from "../src/SmartAccountFactory.sol";
-import {EcdsaOwnershipRegistryModule} from "../src/modules/EcdsaOwnershipRegistryModule.sol";
-import {SmartContractOwnershipRegistryModule} from "../src/modules/SmartContractOwnershipRegistryModule.sol";
-import {UserOperation} from "../lib/account-abstraction/contracts/interfaces/UserOperation.sol";
-import {MockERC721} from "./Mocks/MockERC721.sol";
+import {SmartAccount} from "../../src/SmartAccount.sol";
+import {SmartAccountFactory} from "../../src/SmartAccountFactory.sol";
+import {EcdsaOwnershipRegistryModule} from "../../src/modules/EcdsaOwnershipRegistryModule.sol";
+import {SmartContractOwnershipRegistryModule} from "../../src/modules/SmartContractOwnershipRegistryModule.sol";
+import {UserOperation} from "../../lib/account-abstraction/contracts/interfaces/UserOperation.sol";
+import {MockERC721} from "../Mocks/MockERC721.sol";
 
-import {ERC4337Utils} from "../src/ERC4337Utils.sol";
-import {ECDSA} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {ERC4337Utils} from "../../src/ERC4337Utils.sol";
+import {ECDSA} from "../../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
-import {IERC721} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
+import {IERC721} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC721.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
 interface ISAFactory {
@@ -119,7 +119,7 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in NFT transfer (cold access) is :");
+        console.log("Ethereum Mainnet :: ECDSA Module(w/o paymaster) :: Gas consumed in NFT transfer (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -148,7 +148,7 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in NFT transfer (warm access) is :");
+        console.log("Ethereum Mainnet :: ECDSA Module(w/o paymaster) :: Gas consumed in NFT transfer (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -173,7 +173,7 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in minting NFT (cold access) is :");
+        console.log("Ethereum Mainnet :: ECDSA Module(w/o paymaster) :: Gas consumed in minting NFT (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -201,7 +201,7 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in minting NFT (warm access) is :");
+        console.log("Ethereum Mainnet :: ECDSA Module(w/o paymaster) :: Gas consumed in minting NFT (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -234,7 +234,7 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in approving NFT (warm access) is :");
+        console.log("Ethereum Mainnet :: ECDSA Module(w/o paymaster) :: Gas consumed in approving NFT (warm access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
@@ -262,7 +262,7 @@ contract TestERC721 is Test {
         UserOperation[] memory ops = new UserOperation[](1);
         ops[0] = userOp;
 
-        console.log("ECDSA Module :: Gas consumed in approving NFT (cold access) is :");
+        console.log("Ethereum Mainnet :: ECDSA Module(w/o paymaster) :: Gas consumed in approving NFT (cold access) is :");
         // Send the userOp to EntryPoint
         uint256 prevGas = gasleft();
         IEntryPoint(entryPointAdr).handleOps(ops, payable(alice));
