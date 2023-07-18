@@ -13,3 +13,6 @@
 [submodule "lib/v3-core"]
 	path = lib/v3-core
 	url = https://github.com/Uniswap/v3-core
+[submodule "lib/kernel"]
+	path = lib/kernel
+	url = https://github.com/zerodevapp/kernel
