@@ -15,6 +15,7 @@ import {ECDSA} from "../../lib/openzeppelin-contracts/contracts/utils/cryptograp
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {INonceManager} from "@account-abstraction/contracts/interfaces/INonceManager.sol";
 
 interface ISAFactory {
     function deployCounterFactualAccount(address moduleSetupContract, bytes calldata moduleSetupData, uint256 index)
@@ -103,6 +104,10 @@ contract TestERC20 is Test {
         vm.deal(ecdsaOwnershipModuleAddress, 5 ether);
         vm.deal(smartAccountFactoryAddress, 5 ether);
         vm.deal(smartContractOwnershipModuleAddress, 5 ether);
+
+        vm.startPrank(userSA);
+        INonceManager(entryPointAdr).incrementNonce(0);
+        vm.stopPrank();
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

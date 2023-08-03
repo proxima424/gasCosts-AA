@@ -102,6 +102,9 @@ contract TestERC20 is Test {
             ecdsaOwnershipModuleAddress, txnData1, smartAccountDeploymentIndex
         );
         vm.deal(userSA, 5 ether);
+        vm.startPrank(userSA);
+        INonceManager(entryPointAdr).incrementNonce(0);
+        vm.stopPrank();
     }
 
     // Deployment of Smart Account with ECDSA Auth Module

@@ -11,12 +11,12 @@ Test Cases to Cover by forking ETH-Mainnet : </br>
 - [ ] Restructure README to showcase GasCosts according to what the branch specifies
 - [ ] Write gas costs in this branch chain-wise
 - [X] Replicate ECDSA/Paymaster without paymaster for Polygon Mainnet
-- [X] DAI Transfer :: `ECDSA : 160981,182882` `SA Ownership : 177790,199690`
+- [X] DAI Transfer :: `ECDSA : 160981,182882` `SA Ownership : 160687,182586`
 - [ ] Native ETH Transfer
 - [X] Wallet Deployment
-- [X] NFT Transfer :: `ECDSA : 157366,181766` `SA Ownership : 174175,198575`
-- [X] NFT Mint ::  `ECDSA : 178708,214608` `SA Ownership : 195513,231413`
-- [X] Uniswap Swap :: `ECDSA : 301008` `SA Ownership : 317908`
+- [X] NFT Transfer :: `ECDSA : 140268,164668` `SA Ownership : 157072,181472`
+- [X] NFT Mint ::  `ECDSA : 178708,214608` `SA Ownership : 178414,214314`
+- [X] Uniswap Swap :: `ECDSA : 283992` `SA Ownership : 300796`
 - [X] Do all with SAOwnershipAuthModule
 - [ ] AAVE deposit Collateral
 - [ ] Uniswap V3 Mint Position
