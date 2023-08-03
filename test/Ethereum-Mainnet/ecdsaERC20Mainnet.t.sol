@@ -15,6 +15,7 @@ import {ERC4337Utils} from "../../src/ERC4337Utils.sol";
 import {ECDSA} from "../../lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {INonceManager} from "@account-abstraction/contracts/interfaces/INonceManager.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 
 interface ISAFactory {
