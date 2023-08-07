@@ -1,6 +1,0 @@
-@account-abstraction/=lib/account-abstraction/
-@openzeppelin/=lib/openzeppelin-contracts/
-@uniswap/=lib/
-@kernel/=lib/kernel/
-openzeppelin-contracts/=lib/openzeppelin-contracts/
-account-abstraction/=lib/account-abstraction/contracts/
